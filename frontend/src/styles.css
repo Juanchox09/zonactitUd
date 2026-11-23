@@ -1897,12 +1897,31 @@ button {
 }
 
 @media (max-width: 700px) {
-  /* Las franjas quedan como acento en la esquina superior derecha, sin cruzar el lema ni el pie. */
+  /* Las dos franjas van de arriba abajo, pero se inclinan desde su base (a la derecha del texto) y se
+     desvanecen antes del pie: no tapan el logo, el mensaje de carga ni "Altaplaza Mall · UTP". */
   .bienvenida-franja {
-    --inclinacion: -20deg;
-    top: -6%;
-    bottom: auto;
-    height: 32vh;
+    --inclinacion: -6deg;
+    --ancho-lima: clamp(7px, 2.2vw, 14px);
+    top: -8%;
+    bottom: calc(84px + env(safe-area-inset-bottom));
+    -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent);
+    mask-image: linear-gradient(to bottom, #000 72%, transparent);
+  }
+
+  .franja-lima {
+    right: 3%;
+    width: var(--ancho-lima);
+  }
+
+  .franja-rosa {
+    right: calc(3% + var(--ancho-lima) + 6px);
+    width: clamp(18px, 6vw, 40px);
+  }
+
+  /* En pantallas muy angostas el mensaje pasa a dos líneas para dejar libre el borde derecho. */
+  .bienvenida-mensaje {
+    max-width: 64vw;
+    text-wrap: balance;
   }
 
   .bienvenida-lema {
