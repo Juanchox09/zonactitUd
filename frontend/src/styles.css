@@ -1897,31 +1897,38 @@ button {
 }
 
 @media (max-width: 700px) {
-  /* Las dos franjas van de arriba abajo, pero se inclinan desde su base (a la derecha del texto) y se
-     desvanecen antes del pie: no tapan el logo, el mensaje de carga ni "Altaplaza Mall · UTP". */
+  /* Las dos franjas cruzan la pantalla en diagonal POR DETRÁS del texto, más tenues que en
+     computadora para que el logo, el mensaje de carga y el pie se lean bien encima de ellas. */
   .bienvenida-franja {
-    --inclinacion: -6deg;
-    --ancho-lima: clamp(7px, 2.2vw, 14px);
-    top: -8%;
-    bottom: calc(84px + env(safe-area-inset-bottom));
-    -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent);
-    mask-image: linear-gradient(to bottom, #000 72%, transparent);
-  }
-
-  .franja-lima {
-    right: 3%;
-    width: var(--ancho-lima);
+    --inclinacion: -18deg;
+    top: -20%;
+    bottom: -20%;
+    opacity: 0.4;
   }
 
   .franja-rosa {
-    right: calc(3% + var(--ancho-lima) + 6px);
-    width: clamp(18px, 6vw, 40px);
+    right: 8%;
+    width: 44px;
   }
 
-  /* En pantallas muy angostas el mensaje pasa a dos líneas para dejar libre el borde derecho. */
+  .franja-lima {
+    right: calc(8% - 32px);
+    width: 16px;
+  }
+
+  /* El texto que pasa sobre las franjas: un poco más claro y con sombra suave para separarlo. */
+  .bienvenida-lema,
+  .bienvenida-mensaje,
+  .bienvenida-pie {
+    text-shadow: 0 1px 10px rgb(0 0 0 / 75%);
+  }
+
   .bienvenida-mensaje {
-    max-width: 64vw;
-    text-wrap: balance;
+    color: rgb(255 255 255 / 78%);
+  }
+
+  .bienvenida-pie {
+    color: rgb(255 255 255 / 72%);
   }
 
   .bienvenida-lema {
