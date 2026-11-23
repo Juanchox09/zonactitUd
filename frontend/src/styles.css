@@ -1877,3 +1877,61 @@ button {
     transform: rotate(-4deg);
   }
 }
+
+/* ---------------------------------------------------------------- navegación Validar / Reportes */
+
+.cabecera-interior {
+  flex-wrap: wrap;
+}
+
+.navegacion {
+  order: 3;
+  display: flex;
+  gap: 4px;
+  width: 100%;
+  padding: 4px;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 8%);
+  border: 1px solid rgb(255 255 255 / 12%);
+}
+
+.nav-enlace {
+  flex: 1;
+  padding: 7px 14px;
+  border-radius: 9px;
+  color: rgb(255 255 255 / 75%);
+  font-family: var(--fuente-titulo);
+  font-weight: 800;
+  font-size: 1rem;
+  letter-spacing: 0.06em;
+  text-align: center;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.nav-enlace:hover {
+  color: #fff;
+  background: rgb(255 255 255 / 10%);
+}
+
+.nav-enlace[aria-current='page'] {
+  background: var(--rosa);
+  color: #fff;
+}
+
+@media (min-width: 720px) {
+  .cabecera-interior {
+    flex-wrap: nowrap;
+  }
+
+  .navegacion {
+    order: 0;
+    width: auto;
+    margin-left: auto;
+  }
+
+  .nav-enlace {
+    flex: none;
+  }
+}

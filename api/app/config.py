@@ -21,6 +21,12 @@ class Configuracion(BaseSettings):
     utp_limite_por_minuto: int = 55
     utp_cache_segundos: int = 30
 
+    # Clave para el identificador anónimo del estudiante (HMAC de la cédula). En producción, una clave
+    # larga y secreta: si se cambia, los mismos estudiantes cuentan como nuevos.
+    clave_anonimizacion: str = "solo-para-desarrollo-cambiar-en-produccion"
+    # Ningún reporte muestra grupos con menos estudiantes que este número (se agrupan en "Otros").
+    minimo_grupo: int = 5
+
     @property
     def origenes_cors(self) -> list[str]:
         return [o.strip() for o in self.cors_origin.split(",") if o.strip()]

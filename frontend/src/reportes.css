@@ -1,0 +1,597 @@
+/* Panel de reportes (propuesta). Usa los tokens de styles.css.
+   Colores de datos validados con el script de la guía de visualización (contraste y luminosidad):
+   rosa para actividad del programa, morado UTP para datos académicos. */
+
+.panel-reportes {
+  --dato-rosa: #ec008c;
+  --dato-utp: #6a47b3;
+  --rejilla: #ececee;
+  --calor-1: #f48cc5;
+  --calor-2: #ec5aac;
+  --calor-3: #dd2491;
+  --calor-4: #b8007a;
+  --calor-5: #8a005c;
+  --calor-6: #5c003d;
+  --calor-0: #f3f3f5;
+
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .panel-reportes {
+    --dato-rosa: #f0349f;
+    --dato-utp: #9479dc;
+    --rejilla: #2a2a2d;
+    --calor-1: #a51c72;
+    --calor-2: #c81f8a;
+    --calor-3: #e43a9f;
+    --calor-4: #f064b6;
+    --calor-5: #f793cc;
+    --calor-6: #fcc2e3;
+    --calor-0: #1f1f22;
+  }
+}
+
+.saludo-reportes {
+  padding-bottom: 4px;
+}
+
+/* ---------------------------------------------------------------- filtros */
+
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+}
+
+.filtros .segmentado-compacto {
+  display: inline-flex;
+  grid-template-columns: none;
+  margin: 0;
+  background: var(--superficie);
+  box-shadow: var(--sombra);
+}
+
+.filtros .segmentado-compacto .segmento {
+  min-height: 38px;
+  padding: 6px 14px;
+  font-size: 0.88rem;
+}
+
+.filtros .segmentado-compacto .segmento[aria-pressed='true'] {
+  background: var(--negro);
+  color: #fff;
+}
+
+.filtros-periodo {
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.etiqueta-simulado {
+  padding: 4px 12px;
+  transform: skewX(-14deg);
+  background: var(--lima);
+  color: var(--negro);
+  font-family: var(--fuente-titulo);
+  font-weight: 800;
+  font-size: 0.9rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.panel-error {
+  align-items: center;
+}
+
+.panel-error .boton-texto {
+  margin-left: auto;
+}
+
+/* ---------------------------------------------------------------- indicadores */
+
+.indicadores {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.indicador {
+  min-width: 0;
+  padding: 14px 16px;
+  border-radius: var(--radio);
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  box-shadow: var(--sombra);
+}
+
+.indicador-destacado {
+  grid-column: 1 / -1;
+  background: var(--negro);
+  border-color: var(--negro);
+  color: #fff;
+}
+
+.indicador-titulo {
+  color: var(--texto-suave);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.indicador-valor {
+  margin-top: 2px;
+  font-family: var(--fuente-titulo);
+  font-weight: 800;
+  font-size: 2rem;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.indicador-destacado .indicador-valor {
+  font-size: 3rem;
+  color: var(--lima);
+}
+
+.indicador-nota {
+  margin-top: 2px;
+  color: var(--texto-tenue);
+  font-size: 0.78rem;
+}
+
+.indicador-destacado .indicador-titulo,
+.indicador-destacado .indicador-nota {
+  color: rgb(255 255 255 / 70%);
+}
+
+.cambio {
+  font-weight: 800;
+  color: var(--texto);
+}
+
+.indicador-destacado .cambio {
+  color: #fff;
+}
+
+.esqueleto-indicador {
+  height: 96px;
+  background: linear-gradient(90deg, var(--superficie), var(--superficie-2), var(--superficie)) 0 0 / 200% 100%;
+  animation: brillo 1.2s linear infinite;
+}
+
+/* ---------------------------------------------------------------- tarjetas de gráficos */
+
+.rejilla-graficos {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+}
+
+.tarjeta-grafico {
+  min-width: 0;
+  padding: 18px;
+}
+
+.grafico-cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.grafico-cabecera h2 {
+  font-family: var(--fuente-titulo);
+  font-size: 1.45rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  line-height: 1.1;
+}
+
+.grafico-cabecera p {
+  margin-top: 3px;
+  color: var(--texto-suave);
+  font-size: 0.86rem;
+}
+
+.grafico-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+  flex: none;
+}
+
+.boton-texto {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--primario);
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.boton-texto:hover {
+  background: var(--primario-suave);
+}
+
+.grafico-nota {
+  margin-top: 12px;
+  color: var(--texto-tenue);
+  font-size: 0.8rem;
+}
+
+.grafico {
+  position: relative;
+  width: 100%;
+  touch-action: pan-y;
+}
+
+.grafico svg {
+  display: block;
+  overflow: visible;
+}
+
+.rejilla {
+  stroke: var(--rejilla);
+  stroke-width: 1;
+}
+
+.eje {
+  fill: var(--texto-tenue);
+  font-size: 11px;
+  font-family: var(--fuente);
+}
+
+.linea-trazo {
+  fill: none;
+  stroke: var(--dato-rosa);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.linea-area {
+  fill: var(--dato-rosa);
+  opacity: 0.08;
+}
+
+.cruz {
+  stroke: var(--texto-tenue);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.linea-punto {
+  fill: var(--dato-rosa);
+  stroke: var(--superficie);
+  stroke-width: 2;
+}
+
+.grafico-tooltip {
+  position: absolute;
+  z-index: 5;
+  transform: translate(-50%, -100%);
+  width: max-content;
+  max-width: 260px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--negro);
+  color: #fff;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  box-shadow: var(--sombra-l);
+  pointer-events: none;
+}
+
+.tooltip-titulo {
+  display: block;
+  margin-bottom: 2px;
+  color: rgb(255 255 255 / 70%);
+  font-weight: 600;
+}
+
+@media (prefers-color-scheme: dark) {
+  .grafico-tooltip {
+    background: #f4f4f5;
+    color: var(--negro);
+  }
+
+  .tooltip-titulo {
+    color: #55555c;
+  }
+}
+
+/* ---------------------------------------------------------------- mapa de calor */
+
+.mapa-calor-desplazable {
+  position: relative;
+  overflow-x: auto;
+  padding-top: 4px;
+}
+
+.mapa-calor {
+  display: grid;
+  gap: 3px;
+  min-width: 420px;
+}
+
+.mapa-hora {
+  color: var(--texto-tenue);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.mapa-dia {
+  align-self: center;
+  color: var(--texto-suave);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.mapa-celda {
+  display: block;
+  height: 26px;
+  border-radius: 4px;
+  background: var(--calor-0);
+}
+
+.mapa-celda:focus-visible,
+.mapa-calor .mapa-celda:hover {
+  outline: 2px solid var(--texto);
+  outline-offset: 1px;
+}
+
+.paso-1 { background: var(--calor-1); }
+.paso-2 { background: var(--calor-2); }
+.paso-3 { background: var(--calor-3); }
+.paso-4 { background: var(--calor-4); }
+.paso-5 { background: var(--calor-5); }
+.paso-6 { background: var(--calor-6); }
+
+.mapa-leyenda {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  margin-top: 10px;
+  color: var(--texto-tenue);
+  font-size: 0.75rem;
+}
+
+.mapa-leyenda .mapa-celda {
+  width: 18px;
+  height: 12px;
+}
+
+.mapa-leyenda span:first-child {
+  margin-right: 4px;
+}
+
+.mapa-leyenda span:last-child {
+  margin-left: 4px;
+}
+
+/* ---------------------------------------------------------------- barras */
+
+.barras {
+  position: relative;
+  display: grid;
+  gap: 4px;
+}
+
+.barra-fila {
+  display: grid;
+  grid-template-columns: minmax(0, 11.5rem) minmax(0, 1fr) 3.4rem;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 6px;
+  border-radius: 8px;
+}
+
+.barra-fila:hover,
+.barra-fila:focus-visible {
+  background: var(--superficie-2);
+}
+
+.barra-etiqueta {
+  display: grid;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.barra-nombre {
+  font-size: 0.86rem;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.barra-detalle {
+  color: var(--texto-tenue);
+  font-size: 0.72rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.barra-pista {
+  height: 12px;
+}
+
+.barra-relleno {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: 0 4px 4px 0;
+  background: var(--dato-rosa);
+  transition: width 0.4s ease;
+}
+
+.tono-utp .barra-relleno {
+  background: var(--dato-utp);
+}
+
+.barra-valor {
+  font-size: 0.84rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* ---------------------------------------------------------------- tablas */
+
+.tabla-contenedor {
+  overflow-x: auto;
+}
+
+.tabla-datos {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.tabla-datos th {
+  position: sticky;
+  top: 0;
+  padding: 8px 10px;
+  border-bottom: 2px solid var(--borde);
+  background: var(--superficie);
+  color: var(--texto-suave);
+  font-size: 0.75rem;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.tabla-datos td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--borde);
+  white-space: nowrap;
+}
+
+/* ---------------------------------------------------------------- alertas */
+
+.contador-alertas {
+  display: grid;
+  place-items: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 8px;
+  border-radius: 10px;
+  background: var(--aviso-suave);
+  color: var(--aviso-texto);
+  font-weight: 800;
+}
+
+@media (prefers-color-scheme: dark) {
+  .contador-alertas {
+    color: var(--aviso);
+  }
+}
+
+.alertas {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.alerta {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--superficie-2);
+  border: 1px solid var(--borde);
+}
+
+.alerta-icono {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: var(--aviso-suave);
+  color: var(--aviso-2);
+}
+
+.alerta-titulo {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.alerta-detalle {
+  color: var(--texto-suave);
+  font-size: 0.85rem;
+}
+
+.alerta-detalle span {
+  display: block;
+  color: var(--texto-tenue);
+  font-size: 0.78rem;
+}
+
+.panel-vacio {
+  grid-column: 1 / -1;
+  padding: 28px;
+}
+
+.panel-vacio h2 {
+  font-family: var(--fuente-titulo);
+  font-size: 1.6rem;
+  text-transform: uppercase;
+}
+
+.panel-vacio p {
+  margin-top: 8px;
+  color: var(--texto-suave);
+}
+
+/* ---------------------------------------------------------------- pantalla grande */
+
+@media (min-width: 720px) {
+  .indicadores {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .indicador-destacado {
+    grid-column: span 2;
+    grid-row: span 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 22px;
+  }
+
+  .indicador-destacado .indicador-valor {
+    font-size: 4.2rem;
+  }
+}
+
+@media (min-width: 1000px) {
+  .rejilla-graficos {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ancho-completo {
+    grid-column: 1 / -1;
+  }
+}

@@ -88,6 +88,9 @@ docker compose run --rm -v ./frontend/demo-qr:/salida mock-utp python generar_qr
 | GET | `/api/carnets/validar?qr=<contenido del QR>` | por QR leído con la cámara del navegador |
 | POST | `/api/carnets/validar-imagen` (campo `imagen`) | por foto del QR; se lee con **OpenCV** en el servidor |
 | GET | `/api/salud` | estado de la API y de la base |
+| GET | `/api/comercios` | comercios afiliados y sus descuentos *(propuesta de reportería)* |
+| POST | `/api/canjes` | registra un descuento aplicado, solo si el estudiante está activo *(propuesta)* |
+| GET | `/api/reportes?dias=30` | indicadores, horarios, tiendas, facultades, tipos de descuento y alertas *(propuesta)* |
 
 | Respuesta | Significado |
 |-----------|-------------|
@@ -114,18 +117,27 @@ Privacidad:
 ## Pruebas
 
 ```bash
-docker compose run --rm --no-deps api pytest -q    # 56 pruebas: identificadores, cliente UTP, endpoints, OpenCV
+docker compose run --rm --no-deps api pytest -q    # 69 pruebas: identificadores, cliente UTP, endpoints, OpenCV, reportería
 ```
 
 Las pruebas levantan el mismo mock de `mock-utp/servidor.py` con estudiantes en memoria y usan SQLite en memoria, así que no necesitan MySQL.
 
 **Postman:** importa `postman/ActitUd.postman_collection.json`. Con `docker compose up` corriendo, usa «Run collection» para ejecutar todas las pruebas.
 
+## Reportería (propuesta)
+
+Prototipo en la rama `dev_juan`: horarios de uso, tiendas con más descuentos, uso por facultad en proporción a la matrícula, tipos de descuento, ahorro entregado y alertas de posible fraude, sin guardar cédulas. Detalle en [`docs/propuesta-reporteria.md`](docs/propuesta-reporteria.md).
+
+```bash
+docker compose exec api python -m scripts.sembrar_reporteria --reiniciar   # datos simulados
+# App → pestaña "Reportes"
+```
+
 ## Pendiente (según el anteproyecto)
 
 - [ ] Comercios afiliados, descuentos y usuarios (cajero / administrador) en MySQL
 - [ ] Inicio de sesión en la app de escaneo y registro del descuento aplicado
-- [ ] Panel administrativo web: comercios, ofertas y métricas
+- [ ] Panel administrativo web: gestión de comercios y ofertas (las métricas están en la propuesta de reportería)
 - [ ] App instalable en el celular (PWA)
 - [ ] Quitar del frontend los colaboradores, egresados y la búsqueda por código de carnet; el alcance es solo estudiantes
 - [ ] Eliminar `backend/` (Node.js)

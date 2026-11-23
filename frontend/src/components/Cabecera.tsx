@@ -9,13 +9,16 @@ const TEXTO_CONEXION: Record<Conexion, string> = {
   comprobando: 'Conectando',
 };
 
+export type Vista = 'validar' | 'reportes';
+
 interface Props {
+  vista: Vista;
   conexion: Conexion;
   sonido: boolean;
   onCambiarSonido: () => void;
 }
 
-export function Cabecera({ conexion, sonido, onCambiarSonido }: Props) {
+export function Cabecera({ vista, conexion, sonido, onCambiarSonido }: Props) {
   return (
     <header className="cabecera">
       <div className="cabecera-interior">
@@ -34,6 +37,15 @@ export function Cabecera({ conexion, sonido, onCambiarSonido }: Props) {
             </span>
           </div>
         </div>
+
+        <nav className="navegacion" aria-label="Secciones">
+          <a href="#/" className="nav-enlace" aria-current={vista === 'validar' ? 'page' : undefined}>
+            Validar
+          </a>
+          <a href="#/reportes" className="nav-enlace" aria-current={vista === 'reportes' ? 'page' : undefined}>
+            Reportes
+          </a>
+        </nav>
 
         <div className="cabecera-acciones">
           <span className={`estado-conexion ${conexion}`}>

@@ -1,7 +1,8 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { AvisoDemo } from './components/AvisoDemo';
 import { Bienvenida } from './components/Bienvenida';
-import { Cabecera, type Conexion } from './components/Cabecera';
+import { Cabecera, type Conexion, type Vista } from './components/Cabecera';
+import { PanelReportes } from './components/reportes/PanelReportes';
 import { EscanerQr } from './components/EscanerQr';
 import { FormularioCedula } from './components/FormularioCedula';
 import { Historial } from './components/Historial';
@@ -16,6 +17,8 @@ type Modo = 'qr' | 'cedula';
 
 const MAX_HISTORIAL = 20;
 
+const vistaDesdeUrl = (): Vista => (window.location.hash.startsWith('#/reportes') ? 'reportes' : 'validar');
+
 export default function App() {
   const [modo, setModo] = useState<Modo>('qr');
   const [estado, setEstado] = useState<EstadoConsulta>({ fase: 'inicial' });
@@ -24,6 +27,7 @@ export default function App() {
   const [sonido, setSonido] = useState(sonidoActivado);
   const [senalCamara, setSenalCamara] = useState(0);
   const [bienvenida, setBienvenida] = useState(true);
+  const [vista, setVista] = useState<Vista>(vistaDesdeUrl);
   const [conexion, setConexion] = useState<Conexion>(servicioValidacion.modo === 'demo' ? 'demo' : 'comprobando');
   const consultaActual = useRef(0);
   const sonidoRef = useRef(sonido);
@@ -93,6 +97,15 @@ export default function App() {
     });
   }
 
+  useEffect(() => {
+    const alCambiar = () => {
+      setVista(vistaDesdeUrl());
+      window.scrollTo({ top: 0 });
+    };
+    window.addEventListener('hashchange', alCambiar);
+    return () => window.removeEventListener('hashchange', alCambiar);
+  }, []);
+
   const comprobarConexion = useCallback(async () => {
     if (servicioValidacion.modo === 'demo') return;
     setConexion((await servicioValidacion.comprobarConexion()) ? 'en-linea' : 'sin-conexion');
@@ -103,74 +116,80 @@ export default function App() {
   return (
     <div className="app">
       {bienvenida && <Bienvenida tarea={comprobarConexion} onTerminar={() => setBienvenida(false)} />}
-      <Cabecera conexion={conexion} sonido={sonido} onCambiarSonido={cambiarSonido} />
+      <Cabecera vista={vista} conexion={conexion} sonido={sonido} onCambiarSonido={cambiarSonido} />
 
-      <main className="layout">
-        <div className="saludo">
-          <h1>Validar estudiante</h1>
-          <p>Confirma que el estudiante está matriculado antes de aplicar el descuento.</p>
-        </div>
-
-        <div className="columna-principal">
-          <section className="tarjeta panel-validacion">
-            <div className="segmentado" role="tablist" aria-label="Método de validación">
-              <button
-                type="button"
-                role="tab"
-                id="pestana-qr"
-                aria-selected={modo === 'qr'}
-                aria-controls="panel-qr"
-                className="segmento"
-                onClick={() => setModo('qr')}
-              >
-                <IconoQr width={18} height={18} />
-                Escanear QR
-              </button>
-              <button
-                type="button"
-                role="tab"
-                id="pestana-cedula"
-                aria-selected={modo === 'cedula'}
-                aria-controls="panel-cedula"
-                className="segmento"
-                onClick={() => setModo('cedula')}
-              >
-                <IconoTeclado width={18} height={18} />
-                Escribir cédula
-              </button>
-              <span className={`segmento-indicador ${modo}`} aria-hidden="true" />
-            </div>
-
-            {modo === 'qr' ? (
-              <div role="tabpanel" id="panel-qr" aria-labelledby="pestana-qr">
-                <EscanerQr onDetectado={alDetectarQr} deshabilitado={cargando} senalInicio={senalCamara} />
+      {vista === 'reportes' ? (
+        <main className="layout">
+          <PanelReportes />
+        </main>
+      ) : (
+        <main className="layout">
+          <div className="saludo">
+            <h1>Validar estudiante</h1>
+            <p>Confirma que el estudiante está matriculado antes de aplicar el descuento.</p>
+          </div>
+  
+          <div className="columna-principal">
+            <section className="tarjeta panel-validacion">
+              <div className="segmentado" role="tablist" aria-label="Método de validación">
+                <button
+                  type="button"
+                  role="tab"
+                  id="pestana-qr"
+                  aria-selected={modo === 'qr'}
+                  aria-controls="panel-qr"
+                  className="segmento"
+                  onClick={() => setModo('qr')}
+                >
+                  <IconoQr width={18} height={18} />
+                  Escanear QR
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  id="pestana-cedula"
+                  aria-selected={modo === 'cedula'}
+                  aria-controls="panel-cedula"
+                  className="segmento"
+                  onClick={() => setModo('cedula')}
+                >
+                  <IconoTeclado width={18} height={18} />
+                  Escribir cédula
+                </button>
+                <span className={`segmento-indicador ${modo}`} aria-hidden="true" />
               </div>
-            ) : (
-              <div role="tabpanel" id="panel-cedula" aria-labelledby="pestana-cedula">
-                <FormularioCedula
-                  key={cedulaPrecargada}
-                  valorInicial={cedulaPrecargada.startsWith('nueva-') ? '' : cedulaPrecargada}
-                  cargando={cargando}
-                  onValidar={(cedula) => void validar({ tipo: 'cedula', valor: cedula })}
-                />
-              </div>
-            )}
-          </section>
-
-          {servicioValidacion.modo === 'demo' && <AvisoDemo onProbar={probarDemo} />}
-        </div>
-
-        <div className="columna-lateral">
-          <Resultado
-            estado={estado}
-            textoSiguiente={modo === 'qr' ? 'Escanear siguiente' : 'Validar otra cédula'}
-            onSiguiente={siguiente}
-            onCerrar={cerrar}
-            onReintentar={reintentar}
-          />
-          <Historial items={historial} onSeleccionar={(resultado) => setEstado({ fase: 'listo', resultado })} />
-        </div>
-      </main>
+  
+              {modo === 'qr' ? (
+                <div role="tabpanel" id="panel-qr" aria-labelledby="pestana-qr">
+                  <EscanerQr onDetectado={alDetectarQr} deshabilitado={cargando} senalInicio={senalCamara} />
+                </div>
+              ) : (
+                <div role="tabpanel" id="panel-cedula" aria-labelledby="pestana-cedula">
+                  <FormularioCedula
+                    key={cedulaPrecargada}
+                    valorInicial={cedulaPrecargada.startsWith('nueva-') ? '' : cedulaPrecargada}
+                    cargando={cargando}
+                    onValidar={(cedula) => void validar({ tipo: 'cedula', valor: cedula })}
+                  />
+                </div>
+              )}
+            </section>
+  
+            {servicioValidacion.modo === 'demo' && <AvisoDemo onProbar={probarDemo} />}
+          </div>
+  
+          <div className="columna-lateral">
+            <Resultado
+              estado={estado}
+              textoSiguiente={modo === 'qr' ? 'Escanear siguiente' : 'Validar otra cédula'}
+              onSiguiente={siguiente}
+              onCerrar={cerrar}
+              onReintentar={reintentar}
+            />
+            <Historial items={historial} onSeleccionar={(resultado) => setEstado({ fase: 'listo', resultado })} />
+          </div>
+        </main>
+      )}
     </div>
   );
 }

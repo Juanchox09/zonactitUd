@@ -8,13 +8,15 @@ from __future__ import annotations
 import logging
 import time
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
+from decimal import Decimal
 from typing import Literal
 
 from fastapi import FastAPI, File, Query, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 from starlette.concurrency import run_in_threadpool
@@ -22,10 +24,11 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .cliente_utp import ClienteUtp, ErrorNoVerificado, ErrorSolicitud, EstudianteUtp, MENSAJE_QR_INVALIDO
 from .config import Configuracion, leer_configuracion
-from .db import Validacion, crear_motor, preparar_base
+from .db import Canje, Comercio, Descuento, MatriculaFacultad, Validacion, crear_motor, preparar_base
 from .identificadores import cedula_de_token_qr, cedula_valida
 from .limite import LimitePorIp
 from .qr_imagen import TAMANO_MAXIMO, leer_qr
+from .reportes import FilaCanje, ahora_panama, calcular, identificador_anonimo
 
 log = logging.getLogger("actitud")
 
@@ -66,6 +69,14 @@ class Titular(BaseModel):
 
 class Error(BaseModel):
     error: str
+
+
+class SolicitudCanje(BaseModel):
+    comercio_id: int
+    descuento_id: int
+    cedula: str | None = Field(None, max_length=30)
+    qr: str | None = Field(None, max_length=512)
+    monto_compra: Decimal | None = Field(None, gt=0, le=100_000, decimal_places=2)
 
 
 class Salud(BaseModel):
@@ -213,6 +224,84 @@ def crear_app(config: Configuracion | None = None, *, cliente: ClienteUtp | None
         if cedula := cedula_valida(texto):
             return await run_in_threadpool(consultar, "imagen", "cedula", cedula)
         return _error(400, MENSAJE_QR_INVALIDO)
+
+    # ------------------------------------------------------------------------------------------------
+    # Reportería (propuesta, rama dev_juan). Cuando exista el login, /comercios y /canjes tomarán el
+    # comercio de la sesión del cajero y /reportes quedará solo para administradores.
+
+    @app.get("/api/comercios", tags=["reportería"], summary="Comercios afiliados y sus descuentos activos")
+    def comercios():
+        with app.state.sesiones() as sesion:
+            filas = sesion.scalars(select(Comercio).where(Comercio.activo).order_by(Comercio.nombre)).all()
+            return [{"id": c.id, "nombre": c.nombre, "categoria": c.categoria,
+                     "descuentos": [{"id": d.id, "tipo": d.tipo, "porcentaje": d.porcentaje,
+                                     "descripcion": d.descripcion} for d in c.descuentos if d.activo]}
+                    for c in filas]
+
+    @app.post("/api/canjes", status_code=201, responses={**respuestas, 409: {"model": Error}}, tags=["reportería"],
+              summary="Registra un descuento aplicado (solo si el estudiante está activo)")
+    def registrar_canje(request: Request, solicitud: SolicitudCanje):
+        if (solicitud.cedula is None) == (solicitud.qr is None):
+            return _error(400, "Indica exactamente uno de los campos: cedula o qr.")
+        if bloqueo := limite_excedido(request):
+            return bloqueo
+        with app.state.sesiones() as sesion:
+            descuento = sesion.get(Descuento, solicitud.descuento_id)
+            if not descuento or not descuento.activo or descuento.comercio_id != solicitud.comercio_id:
+                return _error(400, "El descuento no pertenece a ese comercio o no está activo.")
+        cliente: ClienteUtp = app.state.cliente
+        try:
+            if solicitud.cedula is not None:
+                cedula = cedula_valida(solicitud.cedula)
+                if not cedula:
+                    return _error(400, "Formato de cédula no válido.")
+                estudiante = cliente.consultar_por_cedula(cedula)
+            else:
+                estudiante = cliente.validar_carne(solicitud.qr.strip())
+        except ErrorSolicitud as error:
+            return _error(400, str(error))
+        except ErrorNoVerificado as error:
+            encabezados = {"Retry-After": str(error.reintentar_en)} if error.reintentar_en else None
+            return _error(503, str(error), encabezados)
+        if estudiante is None:
+            return _error(404, "No existe un estudiante asociado a ese carnet.")
+        if not estudiante.activo:
+            return _error(409, "El estudiante no está activo: no se puede aplicar el descuento.")
+
+        monto = solicitud.monto_compra
+        monto_descuento = (monto * descuento.porcentaje / 100).quantize(Decimal("0.01")) if monto is not None else None
+        with app.state.sesiones.begin() as sesion:
+            canje = Canje(comercio_id=solicitud.comercio_id, descuento_id=descuento.id,
+                          estudiante=identificador_anonimo(estudiante.cedula, config.clave_anonimizacion),
+                          facultad=estudiante.facultad or "Sin facultad", sede=estudiante.sede,
+                          carrera=estudiante.carrera, periodo_anio=estudiante.periodo_anio,
+                          periodo_semestre=estudiante.periodo_semestre, porcentaje=descuento.porcentaje,
+                          monto_compra=monto, monto_descuento=monto_descuento, creado_en=ahora_panama())
+            sesion.add(canje)
+            sesion.flush()
+            return {"id": canje.id, "descuento": descuento.descripcion, "porcentaje": descuento.porcentaje,
+                    "montoDescuento": float(monto_descuento) if monto_descuento is not None else None}
+
+    @app.get("/api/reportes", tags=["reportería"], summary="Reportes del programa para el panel administrativo")
+    def reportes(dias: int = Query(30, ge=1, le=366, description="Días hacia atrás, contando hoy")):
+        hasta = ahora_panama().date()
+        desde = hasta - timedelta(days=dias - 1)
+        desde_anterior = desde - timedelta(days=dias)
+        with app.state.sesiones() as sesion:
+            consulta = (select(Canje, Comercio.nombre, Comercio.categoria, Descuento.tipo)
+                        .join(Comercio, Canje.comercio_id == Comercio.id)
+                        .join(Descuento, Canje.descuento_id == Descuento.id)
+                        .where(Canje.creado_en >= datetime.combine(desde_anterior, datetime.min.time()),
+                               Canje.creado_en < datetime.combine(hasta + timedelta(days=1), datetime.min.time())))
+            actuales, anteriores = [], []
+            for canje, comercio, categoria, tipo in sesion.execute(consulta):
+                fila = FilaCanje(canje.creado_en, comercio, categoria, tipo, canje.porcentaje, canje.estudiante,
+                                 canje.facultad, canje.carrera, canje.monto_compra, canje.monto_descuento)
+                (actuales if canje.creado_en.date() >= desde else anteriores).append(fila)
+            validaciones = sesion.scalars(select(Validacion.resultado).where(
+                Validacion.consultado_en >= datetime.combine(desde, datetime.min.time()))).all()
+            matricula = {m.facultad: m.estudiantes for m in sesion.scalars(select(MatriculaFacultad))}
+        return calcular(actuales, anteriores, validaciones, matricula, desde, hasta, config.minimo_grupo)
 
     return app
 
