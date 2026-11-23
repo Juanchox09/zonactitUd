@@ -64,7 +64,13 @@ export function Bienvenida({ tarea, onTerminar }: Props) {
         <p className="bienvenida-mensaje">{mensaje}</p>
       </div>
 
-      <p className="bienvenida-pie">Altaplaza Mall · Universidad Tecnológica de Panamá</p>
+      <p className="bienvenida-pie">
+        <span>Altaplaza Mall</span>
+        <span className="bienvenida-pie-separador" aria-hidden="true">
+          {' · '}
+        </span>
+        <span>Universidad Tecnológica de Panamá</span>
+      </p>
     </div>
   );
 }

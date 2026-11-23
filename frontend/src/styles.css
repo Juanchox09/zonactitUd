@@ -1877,3 +1877,70 @@ button {
     transform: rotate(-4deg);
   }
 }
+
+/* ---------------------------------------------------------------- ajustes para celular */
+
+/* El espaciado entre letras deja un espacio extra después de la última letra y corre el texto a la
+   izquierda; este relleno lo compensa para que quede centrado de verdad. */
+.bienvenida-lema {
+  padding-left: 0.22em;
+}
+
+.bienvenida-pie {
+  padding-left: 0.04em;
+  text-wrap: balance;
+}
+
+.bienvenida-centro,
+.bienvenida-pie {
+  z-index: 1;
+}
+
+@media (max-width: 700px) {
+  /* Las franjas quedan como acento en la esquina superior derecha, sin cruzar el lema ni el pie. */
+  .bienvenida-franja {
+    --inclinacion: -20deg;
+    top: -6%;
+    bottom: auto;
+    height: 32vh;
+  }
+
+  .bienvenida-lema {
+    font-size: clamp(0.85rem, 4.2vw, 1.15rem);
+    letter-spacing: 0.16em;
+    padding-left: 0.16em;
+  }
+
+  /* "Altaplaza Mall" y "Universidad Tecnológica de Panamá" en dos líneas centradas. */
+  .bienvenida-pie {
+    display: grid;
+    justify-items: center;
+    gap: 2px;
+    line-height: 1.35;
+  }
+
+  .bienvenida-pie-separador {
+    display: none;
+  }
+}
+
+/* Celulares angostos (320–380 px): que el lema de la cabecera y las pestañas quepan en una línea. */
+@media (max-width: 380px) {
+  .marca-lema {
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+  }
+
+  .segmento {
+    gap: 6px;
+    padding: 8px 4px;
+    font-size: 0.86rem;
+    white-space: nowrap;
+  }
+
+  .segmento svg {
+    width: 16px;
+    height: 16px;
+    flex: none;
+  }
+}
