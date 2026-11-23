@@ -1,0 +1,64 @@
+# Levanta todo el backend en local:   docker compose up --build
+#   mysql     → localhost:3306   bases utp_mock (estudiantes simulados) y actitud (sistema)
+#   mock-utp  → localhost:8090   mock de la API de Estado de Estudiante UTP (lee utp_mock)
+#   api       → localhost:4000   API ActitUd en FastAPI (docs en /docs); consulta al mock por HTTP
+#   adminer   → localhost:8081   para ver y editar las tablas desde el navegador
+services:
+  mysql:
+    image: mysql:8.4.3
+    environment:
+      MYSQL_ROOT_PASSWORD: root_local
+      TZ: America/Panama
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci"]
+    ports: ["3306:3306"]
+    volumes:
+      - mysql-datos:/var/lib/mysql
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot_local"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  mock-utp:
+    build: ./mock-utp
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_USER: utp_mock
+      MYSQL_PASSWORD: utp_mock_local
+      MYSQL_DATABASE: utp_mock
+      MOCK_LATENCIA_MS: ${MOCK_LATENCIA_MS:-}
+    ports: ["8090:8090"]
+    depends_on:
+      mysql: { condition: service_healthy }
+
+  api:
+    build: ./api
+    environment:
+      DATABASE_URL: mysql+pymysql://actitud:actitud_local@mysql:3306/actitud?charset=utf8mb4
+      UTP_API_URL: http://mock-utp:8090/api/v1
+      UTP_CLIENT_ID: carnet-qr-tesis
+      UTP_CLIENT_SECRET: mock-secret
+      UTP_CACHE_SEGUNDOS: "0"   # con el mock, para ver al instante los cambios en la tabla
+      CORS_ORIGIN: http://localhost:5173
+      WATCHFILES_FORCE_POLLING: "true"
+    # --reload: los cambios en api/app se aplican sin reconstruir la imagen
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "4000", "--reload",
+              "--no-access-log", "--proxy-headers", "--forwarded-allow-ips=*"]
+    ports: ["4000:4000"]
+    volumes:
+      - ./api:/app
+      - ./mock-utp:/mock-utp:ro   # las pruebas levantan el mock en memoria
+    depends_on:
+      mysql: { condition: service_healthy }
+      mock-utp: { condition: service_started }
+
+  adminer:
+    image: adminer:4.8.1
+    environment:
+      ADMINER_DEFAULT_SERVER: mysql
+    ports: ["8081:8080"]
+    depends_on: [mysql]
+
+volumes:
+  mysql-datos:

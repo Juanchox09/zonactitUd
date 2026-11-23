@@ -1,0 +1,38 @@
+{
+  "_descripcion": "Tabla de rutas neutral para cargar en GhostMock u otra herramienta de mock. Cada regla: método + ruta + condición → respuesta. Evaluar en orden; la primera que coincida gana.",
+  "base_url": "/api/v1",
+  "reglas": [
+    { "metodo": "POST", "ruta": "/auth/token", "condicion": "body contiene grant_type=client_credentials&client_id=carnet-qr-tesis&client_secret=mock-secret",
+      "status": 200, "body": { "access_token": "mock-token-123", "token_type": "Bearer", "expires_in": 3600, "scope": "estudiantes.estado:read" } },
+    { "metodo": "POST", "ruta": "/auth/token", "condicion": "cualquier otro body",
+      "status": 401, "body": { "codigo": "NO_AUTENTICADO", "mensaje": "Credenciales de cliente inválidas.", "trace_id": "mock-0004" } },
+
+    { "metodo": "*", "ruta": "/estudiantes/*", "condicion": "header Authorization == 'Bearer mock-token-sin-permiso'",
+      "status": 403, "body": { "codigo": "SIN_PERMISO", "mensaje": "El cliente no tiene permiso para esta consulta.", "trace_id": "mock-0005" } },
+    { "metodo": "*", "ruta": "/estudiantes/*", "condicion": "header Authorization != 'Bearer mock-token-123'",
+      "status": 401, "headers": { "WWW-Authenticate": "Bearer error=\"invalid_token\"" },
+      "body": { "codigo": "NO_AUTENTICADO", "mensaje": "Token ausente o inválido.", "trace_id": "mock-0004" } },
+
+    { "metodo": "GET", "ruta": "/estudiantes/8-123-456/estado", "status": 200,
+      "body": { "cedula": "8-123-456", "nombre": "ANA MARÍA PÉREZ GÓMEZ", "activo": true, "matriculado": true, "sede": "Campus Víctor Levi Sasso", "facultad": "Facultad de Ingeniería de Sistemas Computacionales", "carrera": "Licenciatura en Ingeniería de Software", "periodo": { "anio": 2026, "semestre": 2 }, "consultado_en": "2026-11-16T14:30:00-05:00" } },
+    { "metodo": "GET", "ruta": "/estudiantes/8-234-567/estado", "status": 200,
+      "body": { "cedula": "8-234-567", "nombre": "CARLOS ALBERTO RÍOS DE LEÓN", "activo": false, "matriculado": false, "sede": "Centro Regional de Chiriquí", "facultad": "Facultad de Ingeniería Civil", "carrera": "Licenciatura en Ingeniería Civil", "periodo": { "anio": 2026, "semestre": 2 }, "consultado_en": "2026-11-16T14:30:00-05:00" } },
+    { "metodo": "GET", "ruta": "/estudiantes/E-8-12345/estado", "status": 200,
+      "body": { "cedula": "E-8-12345", "nombre": "LUCÍA FERNANDA TORRES", "activo": true, "matriculado": true, "sede": "Campus Víctor Levi Sasso", "facultad": "Facultad de Ingeniería Industrial", "carrera": "Licenciatura en Ingeniería Industrial", "periodo": { "anio": 2026, "semestre": 2 }, "consultado_en": "2026-11-16T14:30:00-05:00" } },
+    { "metodo": "GET", "ruta": "/estudiantes/8-500-500/estado", "status": 503, "headers": { "Retry-After": "30" },
+      "body": { "codigo": "ORIGEN_NO_DISPONIBLE", "mensaje": "El sistema de matrícula no está disponible.", "trace_id": "mock-0009" } },
+    { "metodo": "GET", "ruta": "/estudiantes/{cedula}/estado", "condicion": "cedula NO coincide con ^[A-Za-z0-9]{1,4}-\\d{1,5}-\\d{1,6}$",
+      "status": 400, "body": { "codigo": "CEDULA_INVALIDA", "mensaje": "Formato de cédula inválido.", "detalle": "Formato esperado: 8-123-456", "trace_id": "mock-0003" } },
+    { "metodo": "GET", "ruta": "/estudiantes/{cedula}/estado", "condicion": "cualquier otra cédula",
+      "status": 404, "body": { "codigo": "ESTUDIANTE_NO_ENCONTRADO", "mensaje": "No se encontró al estudiante.", "trace_id": "mock-0006" } },
+
+    { "metodo": "POST", "ruta": "/estudiantes/validar-carne", "condicion": "body.token_qr == 'OC0xMjMtNDU2QHV0cC5hYy5wYQ=='",
+      "status": 200, "body_igual_a": "GET /estudiantes/8-123-456/estado" },
+    { "metodo": "POST", "ruta": "/estudiantes/validar-carne", "condicion": "body.token_qr == 'OC0yMzQtNTY3QHV0cC5hYy5wYQ=='",
+      "status": 200, "body_igual_a": "GET /estudiantes/8-234-567/estado" },
+    { "metodo": "POST", "ruta": "/estudiantes/validar-carne", "condicion": "body.token_qr == 'RS04LTEyMzQ1QHV0cC5hYy5wYQ=='",
+      "status": 200, "body_igual_a": "GET /estudiantes/E-8-12345/estado" },
+    { "metodo": "POST", "ruta": "/estudiantes/validar-carne", "condicion": "cualquier otro token_qr",
+      "status": 400, "body": { "codigo": "QR_INVALIDO", "mensaje": "El token QR no se pudo decodificar.", "trace_id": "mock-0002" } }
+  ]
+}

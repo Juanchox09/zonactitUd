@@ -1,0 +1,36 @@
+[
+  {
+    "nombre": "ANA MARÍA PÉREZ GÓMEZ",
+    "cedula": "8-123-456",
+    "tipo": "Estudiante",
+    "unidad": "Facultad de Ingeniería de Sistemas Computacionales",
+    "programa": "Licenciatura en Ingeniería de Software",
+    "sede": "Campus Víctor Levi Sasso",
+    "estado": "ACTIVO",
+    "periodo": { "anio": 2026, "semestre": 2 },
+    "fuente": "utp"
+  },
+  {
+    "nombre": "CARLOS ALBERTO RÍOS DE LEÓN",
+    "cedula": "8-234-567",
+    "tipo": "Estudiante",
+    "unidad": "Facultad de Ingeniería Civil",
+    "programa": "Licenciatura en Ingeniería Civil",
+    "sede": "Centro Regional de Chiriquí",
+    "estado": "INACTIVO",
+    "periodo": { "anio": 2026, "semestre": 2 },
+    "motivo": "No matriculado en el periodo vigente",
+    "fuente": "utp"
+  },
+  {
+    "nombre": "LUCÍA FERNANDA TORRES",
+    "cedula": "E-8-12345",
+    "tipo": "Estudiante",
+    "unidad": "Facultad de Ingeniería Industrial",
+    "programa": "Licenciatura en Ingeniería Industrial",
+    "sede": "Campus Víctor Levi Sasso",
+    "estado": "ACTIVO",
+    "periodo": { "anio": 2026, "semestre": 2 },
+    "fuente": "utp"
+  }
+]

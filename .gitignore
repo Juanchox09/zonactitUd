@@ -1,0 +1,15 @@
+# Node
+node_modules/
+dist/
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+# Entorno y datos locales
+.env
+!.env.example
+backend/data/*.db
+backend/data/*.db-*
+# Generados
+frontend/demo-qr/

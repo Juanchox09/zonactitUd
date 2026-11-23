@@ -1,0 +1,26 @@
+[
+  {
+    "cedula": "8-123-456",
+    "nombre": "ANA MARÍA PÉREZ GÓMEZ",
+    "activo": true,
+    "sede": "Campus Víctor Levi Sasso",
+    "facultad": "Facultad de Ingeniería de Sistemas Computacionales",
+    "carrera": "Licenciatura en Ingeniería de Software"
+  },
+  {
+    "cedula": "8-234-567",
+    "nombre": "CARLOS ALBERTO RÍOS DE LEÓN",
+    "activo": false,
+    "sede": "Centro Regional de Chiriquí",
+    "facultad": "Facultad de Ingeniería Civil",
+    "carrera": "Licenciatura en Ingeniería Civil"
+  },
+  {
+    "cedula": "E-8-12345",
+    "nombre": "LUCÍA FERNANDA TORRES",
+    "activo": true,
+    "sede": "Campus Víctor Levi Sasso",
+    "facultad": "Facultad de Ingeniería Industrial",
+    "carrera": "Licenciatura en Ingeniería Industrial"
+  }
+]

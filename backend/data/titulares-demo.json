@@ -1,0 +1,43 @@
+[
+  {
+    "nombre": "María Fernanda Ríos Batista",
+    "cedula": "8-123-456",
+    "carnet": "2023-00451",
+    "tipo": "Estudiante",
+    "unidad": "Facultad de Ingeniería de Sistemas Computacionales",
+    "programa": "Licenciatura en Ingeniería de Software",
+    "estado": "ACTIVO",
+    "vigenteHasta": "2027-03-31"
+  },
+  {
+    "nombre": "Carlos Alberto Méndez Ortega",
+    "cedula": "4-765-1234",
+    "carnet": "2021-01187",
+    "tipo": "Estudiante",
+    "unidad": "Facultad de Ingeniería Industrial",
+    "programa": "Licenciatura en Ingeniería Industrial",
+    "estado": "INACTIVO",
+    "vigenteHasta": "2025-12-15",
+    "motivo": "Sin matrícula en el período académico vigente"
+  },
+  {
+    "nombre": "Ana Lucía Herrera Pinzón",
+    "cedula": "PE-12-345",
+    "carnet": "C-000873",
+    "tipo": "Colaborador",
+    "unidad": "Dirección de Tecnologías de Información",
+    "estado": "ACTIVO",
+    "vigenteHasta": "2026-12-31"
+  },
+  {
+    "nombre": "José Miguel Castillo Vega",
+    "cedula": "8AV-15-678",
+    "carnet": "EG-2019-0332",
+    "tipo": "Egresado",
+    "unidad": "Facultad de Ingeniería Eléctrica",
+    "programa": "Licenciatura en Ingeniería Electromecánica",
+    "estado": "INACTIVO",
+    "vigenteHasta": "2024-06-30",
+    "motivo": "Carnet vencido"
+  }
+]

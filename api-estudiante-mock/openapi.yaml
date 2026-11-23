@@ -1,0 +1,244 @@
+openapi: 3.0.3
+info:
+  title: API de Estado de Estudiante UTP (contrato para simulación)
+  version: 1.0.0-mock
+  description: |
+    Contrato de simulación para consultar si un estudiante de la UTP está activo
+    (matriculado en el periodo vigente). Es un contrato PROVISIONAL mientras se
+    concluyen los trámites con la AIG; la API definitiva puede cambiar nombres de
+    rutas o campos.
+
+    Datos de prueba (ficticios):
+      - 8-123-456  → activo
+      - 8-234-567  → inactivo (no matriculado en el periodo vigente)
+      - E-8-12345  → activo (cédula de extranjero)
+      - 8-999-999  → 404 no encontrado
+      - 8-500-500  → 503 servicio de origen no disponible
+servers:
+  - url: http://localhost:8090/api/v1
+    description: Mock local
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/token:
+    post:
+      summary: Obtener token de acceso (OAuth2 client_credentials)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [grant_type, client_id, client_secret]
+              properties:
+                grant_type: { type: string, enum: [client_credentials] }
+                client_id: { type: string, example: carnet-qr-tesis }
+                client_secret: { type: string, example: mock-secret }
+      responses:
+        "200":
+          description: Token emitido
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Token" }
+              example:
+                access_token: mock-token-123
+                token_type: Bearer
+                expires_in: 3600
+                scope: estudiantes.estado:read
+        "400":
+          description: Solicitud inválida (grant_type faltante o incorrecto)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example: { codigo: SOLICITUD_INVALIDA, mensaje: "grant_type debe ser client_credentials", trace_id: "mock-0001" }
+        "401":
+          $ref: "#/components/responses/NoAutenticado"
+
+  /estudiantes/{cedula}/estado:
+    get:
+      summary: Consultar estado de estudiante por cédula
+      parameters:
+        - name: cedula
+          in: path
+          required: true
+          description: |
+            Cédula panameña con guiones. Se aceptan ceros a la izquierda
+            (08-0123-00456 se normaliza a 8-123-456).
+          schema:
+            type: string
+            pattern: "^[A-Za-z0-9]{1,4}-\\d{1,5}-\\d{1,6}$"
+          examples:
+            activo: { value: 8-123-456 }
+            inactivo: { value: 8-234-567 }
+            extranjero: { value: E-8-12345 }
+            no_existe: { value: 8-999-999 }
+      responses:
+        "200":
+          description: Estudiante encontrado (activo o inactivo)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EstadoEstudiante" }
+              examples:
+                activo:
+                  value:
+                    cedula: 8-123-456
+                    nombre: ANA MARÍA PÉREZ GÓMEZ
+                    activo: true
+                    matriculado: true
+                    sede: Campus Víctor Levi Sasso
+                    facultad: Facultad de Ingeniería de Sistemas Computacionales
+                    carrera: Licenciatura en Ingeniería de Software
+                    periodo: { anio: 2026, semestre: 2 }
+                    consultado_en: "2026-11-16T14:30:00-05:00"
+                inactivo:
+                  value:
+                    cedula: 8-234-567
+                    nombre: CARLOS ALBERTO RÍOS DE LEÓN
+                    activo: false
+                    matriculado: false
+                    sede: Centro Regional de Chiriquí
+                    facultad: Facultad de Ingeniería Civil
+                    carrera: Licenciatura en Ingeniería Civil
+                    periodo: { anio: 2026, semestre: 2 }
+                    consultado_en: "2026-11-16T14:30:00-05:00"
+        "400": { $ref: "#/components/responses/CedulaInvalida" }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "403": { $ref: "#/components/responses/SinPermiso" }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+        "429": { $ref: "#/components/responses/LimiteExcedido" }
+        "500": { $ref: "#/components/responses/ErrorInterno" }
+        "503": { $ref: "#/components/responses/OrigenNoDisponible" }
+
+  /estudiantes/validar-carne:
+    post:
+      summary: Validar el token QR del carné y devolver el estado del estudiante
+      description: |
+        El campo token_qr es el contenido del QR del carné: Base64 de
+        "<cedula>@<sufijo>". Ejemplo: "OC0xMjMtNDU2QHV0cC5hYy5wYQ==" decodifica
+        a "8-123-456@utp.ac.pa".
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token_qr]
+              properties:
+                token_qr: { type: string }
+            examples:
+              activo: { value: { token_qr: OC0xMjMtNDU2QHV0cC5hYy5wYQ== } }
+              inactivo: { value: { token_qr: OC0yMzQtNTY3QHV0cC5hYy5wYQ== } }
+      responses:
+        "200":
+          description: Token válido; incluye el estado del estudiante
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EstadoEstudiante" }
+        "400":
+          description: Token QR ausente o mal formado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+              example: { codigo: QR_INVALIDO, mensaje: "El token QR no se pudo decodificar.", trace_id: "mock-0002" }
+        "401": { $ref: "#/components/responses/NoAutenticado" }
+        "403": { $ref: "#/components/responses/SinPermiso" }
+        "404": { $ref: "#/components/responses/NoEncontrado" }
+        "429": { $ref: "#/components/responses/LimiteExcedido" }
+        "500": { $ref: "#/components/responses/ErrorInterno" }
+        "503": { $ref: "#/components/responses/OrigenNoDisponible" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: "Header: Authorization: Bearer <access_token>"
+
+  schemas:
+    Token:
+      type: object
+      required: [access_token, token_type, expires_in]
+      properties:
+        access_token: { type: string }
+        token_type: { type: string, enum: [Bearer] }
+        expires_in: { type: integer, description: Segundos de vigencia }
+        scope: { type: string }
+
+    EstadoEstudiante:
+      type: object
+      required: [cedula, nombre, activo, matriculado, periodo, consultado_en]
+      properties:
+        cedula: { type: string, description: Cédula normalizada (sin ceros a la izquierda) }
+        nombre: { type: string }
+        activo: { type: boolean, description: true si está matriculado en el periodo vigente }
+        matriculado: { type: boolean }
+        sede: { type: string }
+        facultad: { type: string }
+        carrera: { type: string }
+        periodo:
+          type: object
+          properties:
+            anio: { type: integer }
+            semestre: { type: integer, enum: [1, 2, 3], description: "3 = verano" }
+        consultado_en: { type: string, format: date-time }
+
+    Error:
+      type: object
+      required: [codigo, mensaje, trace_id]
+      properties:
+        codigo: { type: string }
+        mensaje: { type: string }
+        detalle: { type: string }
+        trace_id: { type: string }
+
+  responses:
+    CedulaInvalida:
+      description: Formato de cédula inválido
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { codigo: CEDULA_INVALIDA, mensaje: "Formato de cédula inválido.", detalle: "Formato esperado: 8-123-456", trace_id: "mock-0003" }
+    NoAutenticado:
+      description: Token ausente, inválido o expirado
+      headers:
+        WWW-Authenticate: { schema: { type: string }, example: 'Bearer error="invalid_token"' }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { codigo: NO_AUTENTICADO, mensaje: "Token ausente o inválido.", trace_id: "mock-0004" }
+    SinPermiso:
+      description: El cliente no tiene el scope estudiantes.estado:read
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { codigo: SIN_PERMISO, mensaje: "El cliente no tiene permiso para esta consulta.", trace_id: "mock-0005" }
+    NoEncontrado:
+      description: No existe estudiante con esa cédula
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { codigo: ESTUDIANTE_NO_ENCONTRADO, mensaje: "No se encontró al estudiante.", trace_id: "mock-0006" }
+    LimiteExcedido:
+      description: Demasiadas solicitudes
+      headers:
+        Retry-After: { schema: { type: integer }, example: 60 }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { codigo: LIMITE_EXCEDIDO, mensaje: "Límite de 60 solicitudes por minuto excedido.", trace_id: "mock-0007" }
+    ErrorInterno:
+      description: Error no controlado
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { codigo: ERROR_INTERNO, mensaje: "Error interno del servidor.", trace_id: "mock-0008" }
+    OrigenNoDisponible:
+      description: El sistema de matrícula de origen no responde
+      headers:
+        Retry-After: { schema: { type: integer }, example: 30 }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { codigo: ORIGEN_NO_DISPONIBLE, mensaje: "El sistema de matrícula no está disponible.", trace_id: "mock-0009" }
