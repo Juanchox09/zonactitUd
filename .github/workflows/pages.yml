@@ -1,0 +1,55 @@
+# Publica la app de escaneo (frontend/) en GitHub Pages cada vez que se actualiza main.
+# GitHub Pages solo sirve archivos estáticos: la app corre en modo demostración, con los
+# estudiantes ficticios de frontend/src/services/datos-demo.json. La API en Python y MySQL
+# no se ejecutan aquí.
+name: Publicar en GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  compilar:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - name: Compilar
+        run: npm run build
+        env:
+          # La página vive en https://<usuario>.github.io/<repositorio>/
+          BASE_PATH: /${{ github.event.repository.name }}/
+          # Vacía = modo demostración (no hay servidor de API en GitHub Pages).
+          VITE_API_URL: ''
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+
+  publicar:
+    needs: compilar
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.despliegue.outputs.page_url }}
+    steps:
+      - id: despliegue
+        uses: actions/deploy-pages@v4

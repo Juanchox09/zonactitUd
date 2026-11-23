@@ -49,6 +49,12 @@ npm run dev
 
 Para detener: `Ctrl+C` en la terminal 1, o `docker compose down`. Los datos de MySQL se conservan. `docker compose down -v` los borra y la próxima vez se vuelven a cargar los estudiantes iniciales.
 
+## Versión publicada (GitHub Pages)
+
+**https://juanchox09.github.io/zonactitUd/**
+
+Cada push a `main` compila `frontend/` y la publica (`.github/workflows/pages.yml`). GitHub Pages solo sirve archivos estáticos, así que esa versión corre en **modo demostración** con los estudiantes ficticios de `frontend/src/services/datos-demo.json`; la API en Python, el mock de la UTP y MySQL se ejecutan en local con Docker hasta el despliegue en AWS/GCP.
+
 ## Estudiantes simulados
 
 Están en la tabla **`utp_mock.estudiantes`**. Los cambios se aplican al instante, sin reiniciar nada.
