@@ -55,7 +55,8 @@ class Comercio(Base):
     categoria: Mapped[str] = mapped_column(String(40), index=True)
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
 
-    descuentos: Mapped[list[Descuento]] = relationship(back_populates="comercio")
+    # El primero (menor id) es el descuento principal: el que se aplica al validar en esa tienda.
+    descuentos: Mapped[list[Descuento]] = relationship(back_populates="comercio", order_by="Descuento.id")
 
 
 class Descuento(Base):
@@ -95,6 +96,21 @@ class Canje(Base):
     monto_compra: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     monto_descuento: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+
+
+class Usuario(Base):
+    """Usuarios del panel administrativo. Solo el rol admin puede ver los reportes."""
+
+    __tablename__ = "usuarios"
+    __table_args__ = (CheckConstraint("rol IN ('admin')", name="ck_usuarios_rol"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    usuario: Mapped[str] = mapped_column(String(40), unique=True)
+    nombre: Mapped[str] = mapped_column(String(80))
+    contrasena: Mapped[str] = mapped_column(String(200), comment="scrypt con sal; nunca la contraseña")
+    rol: Mapped[str] = mapped_column(String(10), default="admin")
+    activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
 class MatriculaFacultad(Base):

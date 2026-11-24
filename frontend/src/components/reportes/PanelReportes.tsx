@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { fmt, obtenerReporte, reporteriaDisponible, type Reporte } from '../../services/reportes';
-import { IconoAlerta, IconoReintentar } from '../Iconos';
+import { cerrarSesion, ErrorSesion, sesionGuardada, type Sesion } from '../../services/sesion';
+import { IconoAlerta, IconoReintentar, IconoSalir } from '../Iconos';
+import { LoginAdmin } from './LoginAdmin';
 import { BarrasHorizontales, GraficoLinea, MapaCalor, TarjetaGrafico } from './Graficos';
 import '../../reportes.css';
 
@@ -27,19 +29,29 @@ export function PanelReportes() {
   const [reporte, setReporte] = useState<Reporte | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [intento, setIntento] = useState(0);
+  const [sesion, setSesion] = useState<Sesion | null>(sesionGuardada);
+  const [avisoSesion, setAvisoSesion] = useState<string | null>(null);
+
+  function salir(aviso: string | null = null) {
+    cerrarSesion();
+    setSesion(null);
+    setReporte(null);
+    setAvisoSesion(aviso);
+  }
 
   useEffect(() => {
-    if (!reporteriaDisponible) return;
+    if (!reporteriaDisponible || !sesion) return;
     const control = new AbortController();
     setError(null);
-    obtenerReporte(dias, control.signal)
+    obtenerReporte(dias, sesion.token, control.signal)
       .then(setReporte)
       .catch((e: unknown) => {
         if (e instanceof DOMException && e.name === 'AbortError') return;
+        if (e instanceof ErrorSesion) return salir(e.message);
         setError(e instanceof Error ? e.message : 'No se pudo cargar el reporte.');
       });
     return () => control.abort();
-  }, [dias, intento]);
+  }, [dias, intento, sesion]);
 
   if (!reporteriaDisponible) {
     return (
@@ -50,6 +62,18 @@ export function PanelReportes() {
           datos de ejemplo con <code>docker compose exec api python -m scripts.sembrar_reporteria</code>.
         </p>
       </div>
+    );
+  }
+
+  if (!sesion) {
+    return (
+      <LoginAdmin
+        aviso={avisoSesion}
+        onIniciar={(nueva) => {
+          setAvisoSesion(null);
+          setSesion(nueva);
+        }}
+      />
     );
   }
 
@@ -81,6 +105,14 @@ export function PanelReportes() {
         )}
         <span className="etiqueta-simulado" title="Generados con scripts/sembrar_reporteria.py">
           Datos simulados
+        </span>
+        <span className="sesion-admin">
+          <span className="sesion-nombre" title={`Usuario: ${sesion.usuario.usuario}`}>
+            {sesion.usuario.nombre}
+          </span>
+          <button type="button" className="boton-texto" onClick={() => salir()}>
+            <IconoSalir width={16} height={16} /> Cerrar sesión
+          </button>
         </span>
       </div>
 

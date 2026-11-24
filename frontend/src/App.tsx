@@ -8,6 +8,8 @@ import { FormularioCedula } from './components/FormularioCedula';
 import { Historial } from './components/Historial';
 import { IconoQr, IconoTeclado } from './components/Iconos';
 import { Resultado, type EstadoConsulta } from './components/Resultado';
+import { SelectorTienda } from './components/SelectorTienda';
+import { guardarTienda, listarComercios, tiendaGuardada, tiendasDisponibles, type Comercio } from './services/comercios';
 import { ErrorValidacion, servicioValidacion } from './services/validacion';
 import type { Criterio, ResultadoValidacion } from './types';
 import { interpretarQr } from './utils/qr';
@@ -29,15 +31,55 @@ export default function App() {
   const [bienvenida, setBienvenida] = useState(true);
   const [vista, setVista] = useState<Vista>(vistaDesdeUrl);
   const [conexion, setConexion] = useState<Conexion>(servicioValidacion.modo === 'demo' ? 'demo' : 'comprobando');
+  const [comercios, setComercios] = useState<Comercio[]>([]);
+  const [tienda, setTienda] = useState<number | null>(tiendaGuardada);
+  const [faltaTienda, setFaltaTienda] = useState(false);
   const consultaActual = useRef(0);
   const sonidoRef = useRef(sonido);
   sonidoRef.current = sonido;
+  // La validación lee la tienda y la lista vigentes sin recrear los callbacks del escáner.
+  const tiendaRef = useRef({ tienda, hayTiendas: false });
+  tiendaRef.current = { tienda, hayTiendas: comercios.length > 0 };
+
+  const cargarComercios = useCallback(async () => {
+    if (!tiendasDisponibles) return;
+    try {
+      const lista = await listarComercios();
+      setComercios(lista);
+      // La tienda recordada pudo dejar de existir (p. ej. al recargar los datos simulados).
+      setTienda((actual) => {
+        if (actual && !lista.some((c) => c.id === actual)) {
+          guardarTienda(null);
+          return null;
+        }
+        return actual;
+      });
+    } catch {
+      /* sin lista de tiendas se valida igual, pero sin registrar descuento */
+    }
+  }, []);
+
+  function elegirTienda(id: number | null) {
+    setTienda(id);
+    guardarTienda(id);
+    if (id) setFaltaTienda(false);
+  }
 
   const validar = useCallback(async (criterio: Criterio) => {
+    const { tienda: tiendaActual, hayTiendas } = tiendaRef.current;
+    if (hayTiendas && !tiendaActual) {
+      setFaltaTienda(true);
+      setEstado({ fase: 'inicial' });
+      const selector = document.getElementById('tienda');
+      selector?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      selector?.focus({ preventScroll: true });
+      avisar('aviso', sonidoRef.current);
+      return;
+    }
     const id = ++consultaActual.current;
     setEstado({ fase: 'cargando', criterio });
     try {
-      const resultado = await servicioValidacion.validar(criterio);
+      const resultado = await servicioValidacion.validar(criterio, tiendaActual ?? undefined);
       if (id !== consultaActual.current) return;
       setEstado({ fase: 'listo', resultado });
       setHistorial((previo) => [resultado, ...previo].slice(0, MAX_HISTORIAL));
@@ -45,6 +87,8 @@ export default function App() {
       avisar(resultado.titular?.estado === 'ACTIVO' ? 'exito' : 'rechazo', sonidoRef.current);
     } catch (causa) {
       if (id !== consultaActual.current) return;
+      // La tienda elegida ya no existe en el servidor: se vuelve a pedir.
+      if (causa instanceof ErrorValidacion && causa.tipo === 'solicitud' && /tienda/i.test(causa.message)) void cargarComercios();
       setEstado({
         fase: 'error',
         mensaje: causa instanceof Error ? causa.message : 'Ocurrió un error inesperado.',
@@ -53,7 +97,7 @@ export default function App() {
       });
       avisar('aviso', sonidoRef.current);
     }
-  }, []);
+  }, [cargarComercios]);
 
   const alDetectarQr = useCallback(
     (texto: string) => {
@@ -108,8 +152,10 @@ export default function App() {
 
   const comprobarConexion = useCallback(async () => {
     if (servicioValidacion.modo === 'demo') return;
-    setConexion((await servicioValidacion.comprobarConexion()) ? 'en-linea' : 'sin-conexion');
-  }, []);
+    const enLinea = await servicioValidacion.comprobarConexion();
+    setConexion(enLinea ? 'en-linea' : 'sin-conexion');
+    if (enLinea) await cargarComercios();
+  }, [cargarComercios]);
 
   const cargando = estado.fase === 'cargando';
 
@@ -131,6 +177,9 @@ export default function App() {
   
           <div className="columna-principal">
             <section className="tarjeta panel-validacion">
+              {comercios.length > 0 && (
+                <SelectorTienda comercios={comercios} seleccion={tienda} onElegir={elegirTienda} falta={faltaTienda} />
+              )}
               <div className="segmentado" role="tablist" aria-label="Método de validación">
                 <button
                   type="button"
@@ -161,7 +210,7 @@ export default function App() {
   
               {modo === 'qr' ? (
                 <div role="tabpanel" id="panel-qr" aria-labelledby="pestana-qr">
-                  <EscanerQr onDetectado={alDetectarQr} deshabilitado={cargando} senalInicio={senalCamara} />
+                  <EscanerQr onDetectado={alDetectarQr} deshabilitado={cargando || (comercios.length > 0 && !tienda)} senalInicio={senalCamara} />
                 </div>
               ) : (
                 <div role="tabpanel" id="panel-cedula" aria-labelledby="pestana-cedula">

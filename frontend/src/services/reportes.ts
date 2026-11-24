@@ -1,5 +1,7 @@
 /** Reportería del programa ActitUd (propuesta). Contrato: GET {VITE_API_URL}/reportes?dias=30 */
 
+import { ErrorSesion } from './sesion';
+
 export interface Resumen {
   canjes: number;
   canjesAnterior: number;
@@ -43,14 +45,18 @@ const apiUrl = import.meta.env.VITE_API_URL?.trim().replace(/\/+$/, '');
 
 export const reporteriaDisponible = Boolean(apiUrl);
 
-export async function obtenerReporte(dias: number, senal?: AbortSignal): Promise<Reporte> {
+export async function obtenerReporte(dias: number, token: string, senal?: AbortSignal): Promise<Reporte> {
   let respuesta: Response;
   try {
-    respuesta = await fetch(`${apiUrl}/reportes?dias=${dias}`, { headers: { Accept: 'application/json' }, signal: senal });
+    respuesta = await fetch(`${apiUrl}/reportes?dias=${dias}`, {
+      headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+      signal: senal,
+    });
   } catch (error) {
     if (error instanceof DOMException && error.name === 'AbortError') throw error;
     throw new Error('No hay conexión con el servidor de reportes.');
   }
+  if (respuesta.status === 401 || respuesta.status === 403) throw new ErrorSesion('Tu sesión venció. Vuelve a iniciar sesión.');
   if (!respuesta.ok) throw new Error(`El servidor respondió con un error (${respuesta.status}).`);
   return (await respuesta.json()) as Reporte;
 }

@@ -1,4 +1,6 @@
-# Propuesta: reportería del programa ActitUd
+| Panel con gráficos, vista de tabla, exportación CSV y acceso de administrador | `frontend/src/components/reportes/` |
+| Selector de tienda y descuento en el resultado | `frontend/src/components/SelectorTienda.tsx`, `Resultado.tsx` || Pruebas | `api/tests/test_reportes.py`, `api/tests/test_sesion_y_descuento.py` || `GET /api/comercios`, `POST /api/canjes`, `GET /api/reportes?dias=30`, `POST /api/auth/login`, descuento al validar | `api/app/main.py` |
+| Tabla `usuarios`, contraseñas scrypt y tokens de sesión | `api/app/db.py`, `api/app/seguridad.py` || Descuento aplicado y su porcentaje equivalente | descuento principal de la tienda, buscado por la API al validar || Comercio | tienda elegida en el validador (luego, la sesión del cajero) | ranking de tiendas y categorías |# Propuesta: reportería del programa ActitUd
 
 > **Estado:** propuesta con prototipo funcional en la rama `dev_juan`. No forma parte de `main`.
 > Los datos que muestra el panel son **simulados** (`api/scripts/sembrar_reporteria.py`).
@@ -60,7 +62,8 @@ Indicadores y cómo se calculan (`api/app/reportes.py`):
 - **La cédula nunca se guarda**, solo su HMAC. Sin la clave no se puede revertir, y cambiar la clave rompe la relación con los datos anteriores. Esto aplica el principio de minimización de la Ley 81 de 2019 de Protección de Datos Personales de Panamá.
 - **Mínimo de 5 estudiantes por grupo** (`MINIMO_GRUPO`). Las facultades y carreras con menos se juntan en «Otras», para que nadie pueda deducir quién es el único estudiante de cierta carrera que compró en cierta tienda.
 - **Solo reportes agregados.** No existe una pantalla de «qué compró tal estudiante». Las alertas muestran un alias (`Estudiante #a1b2c3`), no la identidad.
-- **Permisos por rol** (cuando exista el login): cada comercio ve solo sus datos; Altaplaza ve todo; la UTP ve el uso por facultad, sin ventas de las tiendas.
+- **Solo administradores ven los reportes.** `/api/reportes` exige iniciar sesión (`POST /api/auth/login`). Contraseñas cifradas con scrypt, sesión con token firmado que vence en 8 horas, máximo 10 intentos de inicio de sesión por minuto.
+- **Más adelante, permisos por rol:** cada comercio ve solo sus datos; Altaplaza ve todo; la UTP ve el uso por facultad, sin ventas de las tiendas.
 
 ## Escalabilidad
 
@@ -87,12 +90,16 @@ docker compose exec api python -m scripts.sembrar_reporteria --reiniciar
 # App → pestaña "Reportes"  (http://localhost:5173/#/reportes)
 ```
 
-`POST /api/canjes` solo registra el canje si la API UTP confirma que el estudiante está **activo**: responde 409 si está inactivo y 404 si no existe.
+**Cómo se registra un canje.** En el validador, el cajero elige su tienda. Al validar con `GET /api/carnets/validar?cedula=…&comercio_id=…`, si la API UTP confirma que el estudiante está **activo**, la API busca el descuento principal de esa tienda, guarda el canje con su porcentaje y lo devuelve en `descuento` para que la app muestre cuál aplicar. Inactivos y no encontrados no generan canje. Una segunda validación del mismo estudiante en la misma tienda antes de 10 minutos no se duplica.
+
+`POST /api/canjes` sigue disponible para registrar un canje con el monto de la compra: responde 409 si el estudiante está inactivo y 404 si no existe.
+
+**Reportes:** usuario `admin`, contraseña `actitud2026` (solo desarrollo; se cambian con `ADMIN_USUARIO` y `ADMIN_CONTRASENA`).
 
 ## Pendiente para pasar de propuesta a producto
 
-1. **Login de cajero y administrador.** Hoy `comercio_id` llega en la solicitud; debe salir de la sesión, y `/api/reportes` debe quedar solo para administradores.
-2. **Paso «Aplicar descuento» en la app del cajero.** Tras un resultado activo, elegir la oferta y, opcionalmente, escribir el monto.
+1. **Login de cajero.** Hoy la tienda se elige en el validador y llega como `comercio_id`; debe salir de la sesión del cajero. *(El login de administrador para los reportes ya está.)*
+2. **Monto de la compra en la app del cajero.** El descuento ya se registra solo al validar; falta, opcionalmente, escribir el monto y elegir otra oferta si la tienda tiene varias.
 3. **Decisión con marketing de Altaplaza:** ¿se pide el monto de la compra? Agrega segundos a cada canje, pero sin él no hay ahorro entregado ni ticket promedio.
 4. **Matrícula real por facultad**, que debe entregar la UTP. Hoy es simulada.
 5. **Resumen semanal por correo** para marketing y **tabla de resumen diario** para cuando haya mucho volumen.

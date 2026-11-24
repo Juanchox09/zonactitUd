@@ -1,6 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import type { TipoError } from '../services/validacion';
-import type { Criterio, ResultadoValidacion, Titular } from '../types';
+import type { Criterio, DescuentoAplicado, ResultadoValidacion, Titular } from '../types';
 import { formatearHora, formatearPeriodo } from '../utils/formato';
 import { iniciales } from '../utils/retroalimentacion';
 import {
@@ -9,6 +9,7 @@ import {
   IconoCalendario,
   IconoCheck,
   IconoEscudo,
+  IconoEtiqueta,
   IconoPregunta,
   IconoReintentar,
   IconoUbicacion,
@@ -141,13 +142,20 @@ function TarjetaResultado({ resultado, acciones }: { resultado: ResultadoValidac
   }
 
   const activo = titular.estado === 'ACTIVO';
+  const descuento = activo ? titular.descuento : undefined;
   return (
     <Tarjeta
       variante={activo ? 'activo' : 'inactivo'}
       icono={activo ? <IconoCheck /> : <IconoX />}
       etiqueta={activo ? 'Verificado' : 'No elegible'}
       titulo={activo ? 'Estudiante activo' : 'Estudiante inactivo'}
-      texto={activo ? 'Puede recibir el descuento ActitUd.' : `${titular.motivo ?? 'Sin matrícula vigente'}. No apliques el descuento.`}
+      texto={
+        descuento
+          ? 'Aplica el descuento de tu tienda.'
+          : activo
+            ? 'Puede recibir el descuento ActitUd.'
+            : `${titular.motivo ?? 'Sin matrícula vigente'}. No apliques el descuento.`
+      }
       sello={
         <span className="sello-utp">
           <IconoEscudo width={16} height={16} />
@@ -156,8 +164,28 @@ function TarjetaResultado({ resultado, acciones }: { resultado: ResultadoValidac
       }
       acciones={acciones}
     >
+      {descuento && <BloqueDescuento descuento={descuento} />}
       <FichaEstudiante titular={titular} />
     </Tarjeta>
+  );
+}
+
+function BloqueDescuento({ descuento }: { descuento: DescuentoAplicado }) {
+  const valor = descuento.tipo === '2x1' ? '2x1' : `${descuento.porcentaje} %`;
+  return (
+    <div className="descuento-aplicado" role="status">
+      <span className="descuento-valor">{valor}</span>
+      <div className="descuento-detalle">
+        <span className="descuento-etiqueta">
+          <IconoEtiqueta width={14} height={14} />
+          Descuento a aplicar
+        </span>
+        <b>{descuento.descripcion}</b>
+        <span className="descuento-registro">
+          {descuento.comercio} · {descuento.yaRegistrado ? 'ya estaba registrado hace un momento' : 'registrado'}
+        </span>
+      </div>
+    </div>
   );
 }
 

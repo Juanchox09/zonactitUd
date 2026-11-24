@@ -8,6 +8,16 @@ export interface Periodo {
   semestre: number;
 }
 
+export interface DescuentoAplicado {
+  canjeId: number;
+  comercio: string;
+  descripcion: string;
+  tipo: 'porcentaje' | '2x1' | 'otro';
+  porcentaje: number;
+  /** true si ya se había registrado hace pocos minutos (no se duplica). */
+  yaRegistrado: boolean;
+}
+
 export interface Titular {
   nombre: string;
   cedula: string;
@@ -27,6 +37,8 @@ export interface Titular {
   motivo?: string;
   /** De dónde salió el estado: base local del backend o API de la UTP. */
   fuente?: 'local' | 'utp';
+  /** Descuento de la tienda que validó. Solo si el estudiante está activo; ya quedó registrado. */
+  descuento?: DescuentoAplicado;
 }
 
 export interface Criterio {

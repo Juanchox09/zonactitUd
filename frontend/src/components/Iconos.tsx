@@ -128,3 +128,31 @@ export const IconoBorrar = (p: P) => (
     <path d="m15 9-6 6M9 9l6 6" />
   </svg>
 );
+
+export const IconoCandado = (p: P) => (
+  <svg {...base} {...p}>
+    <rect x="4" y="11" width="16" height="10" rx="2" />
+    <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+  </svg>
+);
+
+export const IconoTienda = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M4 9l1.5-5h13L20 9" />
+    <path d="M4 9a2.67 2.67 0 0 0 5.33 0 2.67 2.67 0 0 0 5.34 0A2.67 2.67 0 0 0 20 9" />
+    <path d="M5 11.5V20h14v-8.5M10 20v-5h4v5" />
+  </svg>
+);
+
+export const IconoSalir = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4" />
+  </svg>
+);
+
+export const IconoEtiqueta = (p: P) => (
+  <svg {...base} {...p}>
+    <path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z" />
+    <circle cx="7.5" cy="7.5" r="1.5" />
+  </svg>
+);

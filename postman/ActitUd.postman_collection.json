@@ -24,6 +24,18 @@
     {
       "key": "descuento_id",
       "value": "1"
+    },
+    {
+      "key": "admin_usuario",
+      "value": "admin"
+    },
+    {
+      "key": "admin_contrasena",
+      "value": "actitud2026"
+    },
+    {
+      "key": "admin_token",
+      "value": ""
     }
   ],
   "item": [
@@ -508,6 +520,66 @@
           ]
         },
         {
+          "name": "Validar en una tienda · guarda su descuento",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{api}}/carnets/validar?cedula=8-123-456&comercio_id={{comercio_id}}",
+              "host": ["{{api}}"],
+              "path": ["carnets", "validar"],
+              "query": [
+                { "key": "cedula", "value": "8-123-456" },
+                { "key": "comercio_id", "value": "{{comercio_id}}" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"200 activo con el descuento de la tienda\", () => {",
+                  "  pm.response.to.have.status(200);",
+                  "  const d = pm.response.json().descuento;",
+                  "  pm.expect(d).to.be.an(\"object\");",
+                  "  pm.expect(d.porcentaje).to.be.a(\"number\");",
+                  "  pm.expect(d.canjeId).to.be.a(\"number\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Validar inactivo en una tienda · sin descuento",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{api}}/carnets/validar?cedula=8-234-567&comercio_id={{comercio_id}}",
+              "host": ["{{api}}"],
+              "path": ["carnets", "validar"],
+              "query": [
+                { "key": "cedula", "value": "8-234-567" },
+                { "key": "comercio_id", "value": "{{comercio_id}}" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"INACTIVO y sin descuento\", () => {",
+                  "  const t = pm.response.json();",
+                  "  pm.expect(t.estado).to.eql(\"INACTIVO\");",
+                  "  pm.expect(t).to.not.have.property(\"descuento\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Registrar canje · estudiante activo",
           "request": {
             "method": "POST",
@@ -528,7 +600,8 @@
               "listen": "test",
               "script": {
                 "exec": [
-                  "pm.test(\"201\", () => pm.response.to.have.status(201));"
+                  "// 200 si el mismo estudiante ya se registró en esta tienda hace menos de 10 minutos",
+                  "pm.test(\"201 o 200 (ya registrado)\", () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));"
                 ]
               }
             }
@@ -562,9 +635,66 @@
           ]
         },
         {
+          "name": "Reporte sin sesión (401)",
+          "request": {
+            "method": "GET",
+            "url": "{{api}}/reportes?dias=30"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login admin · contraseña incorrecta (401)",
+          "request": {
+            "method": "POST",
+            "url": "{{api}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"usuario\": \"{{admin_usuario}}\", \"contrasena\": \"incorrecta\" }" }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"401 sin token\", () => { pm.response.to.have.status(401); pm.expect(pm.response.json()).to.not.have.property(\"token\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login admin",
+          "request": {
+            "method": "POST",
+            "url": "{{api}}/auth/login",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{ \"usuario\": \"{{admin_usuario}}\", \"contrasena\": \"{{admin_contrasena}}\" }" }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"200 con token\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"admin_token\", pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Reporte de 30 días",
           "request": {
             "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
             "url": {
               "raw": "{{api}}/reportes?dias=30",
               "host": [

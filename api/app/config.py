@@ -27,6 +27,16 @@ class Configuracion(BaseSettings):
     # Ningún reporte muestra grupos con menos estudiantes que este número (se agrupan en "Otros").
     minimo_grupo: int = 5
 
+    # Inicio de sesión del panel administrativo. Si no existe el usuario ADMIN_USUARIO, se crea al arrancar
+    # con ADMIN_CONTRASENA. En producción: cambiar ambas claves y la contraseña.
+    clave_sesion: str = "solo-para-desarrollo-cambiar-en-produccion-sesion"
+    sesion_horas: int = 8
+    admin_usuario: str = "admin"
+    admin_contrasena: str = "actitud2026"
+    admin_nombre: str = "Administración Altaplaza"
+    # Un mismo estudiante validado de nuevo en la misma tienda dentro de esta ventana no cuenta como otro canje.
+    ventana_canje_min: int = 10
+
     @property
     def origenes_cors(self) -> list[str]:
         return [o.strip() for o in self.cors_origin.split(",") if o.strip()]

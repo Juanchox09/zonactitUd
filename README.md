@@ -1,3 +1,8 @@
+| `401` / `403` + `{ "error" }` | reportes sin sesión de administrador, o sesión vencida |
+| GET | `/api/reportes?dias=30` | indicadores, horarios, tiendas, facultades, tipos de descuento y alertas. **Solo administradores** (`Authorization: Bearer <token>`) *(propuesta)* |
+| POST | `/api/auth/login` | inicia sesión de administrador `{ usuario, contrasena }` y devuelve el token *(propuesta)* |
+| GET | `/api/auth/sesion` | usuario de la sesión actual *(propuesta)* |
+| GET | `/api/carnets/validar?cedula=…&comercio_id=3` | igual, desde una tienda: si el estudiante está activo, **registra el descuento de esa tienda** y lo devuelve en `descuento` *(propuesta)* |
 # Tesis · ActitUd: validación digital del carnet UTP
 
 Sistema de validación digital del carnet estudiantil con código QR para la gestión de descuentos en los comercios afiliados de Altaplaza Mall (programa ActitUd).
@@ -117,7 +122,7 @@ Privacidad:
 ## Pruebas
 
 ```bash
-docker compose run --rm --no-deps api pytest -q    # 69 pruebas: identificadores, cliente UTP, endpoints, OpenCV, reportería
+docker compose run --rm --no-deps api pytest -q    # 81 pruebas: identificadores, cliente UTP, endpoints, OpenCV, reportería, descuento por tienda, login
 ```
 
 Las pruebas levantan el mismo mock de `mock-utp/servidor.py` con estudiantes en memoria y usan SQLite en memoria, así que no necesitan MySQL.
@@ -130,13 +135,19 @@ Prototipo en la rama `dev_juan`: horarios de uso, tiendas con más descuentos, u
 
 ```bash
 docker compose exec api python -m scripts.sembrar_reporteria --reiniciar   # datos simulados
-# App → pestaña "Reportes"
+# App → pestaña "Reportes" → usuario admin, contraseña actitud2026
 ```
+
+**Descuento por tienda.** En el validador, el cajero elige su tienda (se recuerda en ese equipo). Cuando un estudiante sale **activo**, la API busca el descuento principal de esa tienda (su primera oferta activa), lo guarda como canje y la app muestra cuál aplicar, por ejemplo «2x1 en combos los martes». Si el mismo estudiante se vuelve a validar en la misma tienda antes de 10 minutos, no se duplica.
+
+**Acceso de administrador.** Los reportes piden iniciar sesión. Al arrancar, la API crea el usuario `admin` (variables `ADMIN_USUARIO`, `ADMIN_CONTRASENA`) si no existe. La contraseña se guarda cifrada con scrypt y la sesión es un token firmado que vence en 8 horas (`SESION_HORAS`). En producción hay que cambiar `ADMIN_CONTRASENA`, `CLAVE_SESION` y `CLAVE_ANONIMIZACION`.
 
 ## Pendiente (según el anteproyecto)
 
 - [ ] Comercios afiliados, descuentos y usuarios (cajero / administrador) en MySQL
-- [ ] Inicio de sesión en la app de escaneo y registro del descuento aplicado
+- [x] Registro del descuento aplicado al validar en una tienda *(propuesta)*
+- [x] Inicio de sesión de administrador para los reportes *(propuesta)*
+- [ ] Inicio de sesión del cajero, para tomar la tienda de su usuario en vez de elegirla
 - [ ] Panel administrativo web: gestión de comercios y ofertas (las métricas están en la propuesta de reportería)
 - [ ] App instalable en el celular (PWA)
 - [ ] Quitar del frontend los colaboradores, egresados y la búsqueda por código de carnet; el alcance es solo estudiantes

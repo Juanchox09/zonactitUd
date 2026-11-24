@@ -140,7 +140,10 @@ def test_reportes_endpoint(api):
     comercio, descuento = preparar_comercio(api)
     api.get("/api/carnets/validar", params={"cedula": "8-123-456"})
     api.post("/api/canjes", json={"comercio_id": comercio, "descuento_id": descuento, "cedula": "8-123-456"})
-    r = api.get("/api/reportes", params={"dias": 7})
+    assert api.get("/api/reportes", params={"dias": 7}).status_code == 401  # sin sesión
+    token = api.post("/api/auth/login", json={"usuario": "admin", "contrasena": "actitud2026"}).json()["token"]
+    encabezados = {"Authorization": f"Bearer {token}"}
+    r = api.get("/api/reportes", params={"dias": 7}, headers=encabezados)
     assert r.status_code == 200
     datos = r.json()
     assert datos["resumen"]["canjes"] == 1
@@ -148,4 +151,4 @@ def test_reportes_endpoint(api):
     assert len(datos["porDia"]) == 7
     # Un solo estudiante: su facultad queda oculta bajo "Otras facultades".
     assert datos["facultades"][0]["nombre"] == "Otras facultades"
-    assert api.get("/api/reportes", params={"dias": 0}).status_code == 400
+    assert api.get("/api/reportes", params={"dias": 0}, headers=encabezados).status_code == 400

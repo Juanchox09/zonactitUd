@@ -5,7 +5,8 @@ import datosDemo from './datos-demo.json';
 
 export interface ServicioValidacion {
   readonly modo: 'demo' | 'api';
-  validar(criterio: Criterio): Promise<ResultadoValidacion>;
+  /** comercioId: tienda que valida; si el estudiante está activo, el servidor registra su descuento. */
+  validar(criterio: Criterio, comercioId?: number): Promise<ResultadoValidacion>;
   /** true si el servidor responde. Se usa en la pantalla de bienvenida. */
   comprobarConexion(): Promise<boolean>;
 }
@@ -46,8 +47,10 @@ function crearServicioApi(baseUrl: string): ServicioValidacion {
         return false;
       }
     },
-    async validar(criterio) {
-      const url = `${baseUrl}/carnets/validar?${new URLSearchParams({ [criterio.tipo]: criterio.valor })}`;
+    async validar(criterio, comercioId) {
+      const parametros = new URLSearchParams({ [criterio.tipo]: criterio.valor });
+      if (comercioId) parametros.set('comercio_id', String(comercioId));
+      const url = `${baseUrl}/carnets/validar?${parametros}`;
       let respuesta: Response;
       try {
         respuesta = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(TIMEOUT_MS) });
