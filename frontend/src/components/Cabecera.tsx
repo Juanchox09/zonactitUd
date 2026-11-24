@@ -43,7 +43,7 @@ export function Cabecera({ vista, conexion, sonido, onCambiarSonido }: Props) {
             Validar
           </a>
           <a href="#/reportes" className="nav-enlace" aria-current={vista === 'reportes' ? 'page' : undefined}>
-            Reportes
+            Panel
           </a>
         </nav>
 

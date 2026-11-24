@@ -1,28 +1,69 @@
 """Carga comercios, descuentos y meses de canjes SIMULADOS para demostrar la reportería.
 
-Todo es ficticio: nombres de comercios, cédulas (aleatorias, solo se guarda su HMAC),
-cifras de matrícula y montos. Los patrones (horas pico, fines de semana, facultades que
+Catálogo por defecto (--catalogo actitud): los comercios y descuentos REALES del arte oficial
+"¡Conoce nuestros beneficios y descuentos!" de ActitUd (anexo del anteproyecto, válidos de lunes a
+viernes hasta el 31/12/2026). Con --catalogo demo se usan tiendas ficticias.
+Lo demás es ficticio: cédulas (aleatorias, solo se guarda su HMAC), cifras de matrícula y montos. Los patrones (horas pico, fines de semana, facultades que
 prefieren ciertas tiendas, algunos casos sospechosos) imitan lo que se esperaría en un mall
 junto al campus.
 
 Uso (con docker compose levantado):
     docker compose exec api python -m scripts.sembrar_reporteria            # si la base está vacía
     docker compose exec api python -m scripts.sembrar_reporteria --reiniciar --dias 120
+    # Antes de las pruebas de campo: solo comercios y ofertas, sin historial simulado
+    docker compose exec api python -m scripts.sembrar_reporteria --reiniciar --sin-historial
 """
 from __future__ import annotations
 
 import argparse
 import random
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 
 from sqlalchemy import delete, func, select
 
 from app.config import leer_configuracion
-from app.db import Canje, Comercio, Descuento, MatriculaFacultad, Validacion, crear_motor, preparar_base
+from app.db import Canje, Comercio, Descuento, MatriculaFacultad, Usuario, Validacion, crear_motor, preparar_base
 from app.reportes import ahora_panama, identificador_anonimo
 
-# (nombre, categoría, [(tipo, porcentaje, descripción)], (monto mínimo, monto máximo) o None)
+# Arte oficial ActitUd (anexo del anteproyecto). Se omiten los logos que no se leen con certeza en la
+# copia del PDF: agregarlos desde Panel → Comercios con el arte original a la vista.
+LUNES_A_VIERNES, LUNES_A_JUEVES, LUNES_A_MIERCOLES = "01234", "0123", "012"
+VIGENCIA_ACTITUD = date(2026, 12, 31)
+CONDICIONES_ACTITUD = ("Solo estudiantes universitarios del programa ActitUd con carnet válido. Sobre mercancía a precio "
+                       "regular. No aplica con otras promociones, descuentos de jubilados, gift cards ni área de sale. "
+                       "No transferible. No aplica a domicilio ni agregadores (Pedidos Ya, Glovo).")
+# (nombre, categoría, [(tipo, porcentaje, descripción, días)], (monto mínimo, monto máximo) o None)
+# "otro": porcentaje equivalente REFERENCIAL solo para los promedios de los reportes.
+COMERCIOS_ACTITUD = [
+    ("Bonage", "Shopping", [("porcentaje", 15, "15 % en mercancía a precio regular", LUNES_A_VIERNES)], (20, 90)),
+    ("Oscar de la Renta", "Shopping", [("porcentaje", 15, "15 % en mercancía a precio regular", LUNES_A_VIERNES)], (40, 200)),
+    ("Renato", "Shopping", [("porcentaje", 10, "10 % en mercancía a precio regular", LUNES_A_VIERNES)], (30, 150)),
+    ("Vélez", "Shopping", [("porcentaje", 15, "15 % en mercancía a precio regular", LUNES_A_VIERNES)], (40, 180)),
+    ("Leonisa", "Shopping", [("porcentaje", 10, "10 % en mercancía a precio regular", LUNES_A_VIERNES)], (15, 70)),
+    ("Sunglass Hut", "Shopping", [("porcentaje", 25, "25 % en lentes (excepto marcas indicadas en tienda)", LUNES_A_VIERNES)], (80, 250)),
+    ("Ashley", "Shopping", [("porcentaje", 10, "10 % en mercancía a precio regular", LUNES_A_VIERNES)], (100, 900)),
+    ("Adidas", "Shopping", [("porcentaje", 10, "10 % en mercancía a precio regular", LUNES_A_VIERNES)], (30, 140)),
+    ("Everlast", "Shopping", [("porcentaje", 10, "10 % en mercancía a precio regular", LUNES_A_VIERNES)], (20, 90)),
+    ("Dongfeng", "Shopping", [("otro", 5, "B/. 500 de descuento en el abono inicial de un vehículo", LUNES_A_VIERNES)], None),
+    ("Skinlaser", "Shopping", [("porcentaje", 70, "70 % en paquetes de depilación láser de diodo (8 sesiones)", LUNES_A_VIERNES)], (60, 300)),
+    ("MAC", "Shopping", [("porcentaje", 10, "10 % en mercancía a precio regular", LUNES_A_VIERNES)], (20, 80)),
+    ("Miniso", "Shopping", [("porcentaje", 10, "10 % en mercancía a precio regular", LUNES_A_VIERNES)], (5, 40)),
+    ("Mac Store", "Shopping", [("porcentaje", 4, "4 % en hardware Apple (iPhone, iPad, Mac, Watch)", LUNES_A_VIERNES),
+                               ("porcentaje", 10, "10 % en accesorios de terceros", LUNES_A_VIERNES)], (30, 1500)),
+    ("6A Outdoor Adventure", "Shopping", [("porcentaje", 15, "15 % en marcas participantes a precio regular", LUNES_A_VIERNES)], (40, 180)),
+    ("Amarantto", "Restaurantes", [("porcentaje", 10, "10 % en platos fuertes", LUNES_A_VIERNES)], (12, 35)),
+    ("Segundo Muelle", "Restaurantes", [("porcentaje", 15, "15 % en el consumo", LUNES_A_VIERNES)], (15, 45)),
+    ("Gelatiamo", "Restaurantes", [("porcentaje", 15, "15 % en el consumo", LUNES_A_VIERNES)], (4, 15)),
+    ("Mercaito", "Restaurantes", [("porcentaje", 15, "15 % en el consumo", LUNES_A_VIERNES)], (8, 25)),
+    ("México Lindo", "Restaurantes", [("porcentaje", 15, "15 % en el consumo", LUNES_A_VIERNES)], (10, 30)),
+    ("Wings Army", "Restaurantes", [("porcentaje", 10, "10 % en el consumo", LUNES_A_VIERNES)], (10, 30)),
+    ("Misawa", "Restaurantes", [("porcentaje", 15, "15 % en el consumo", LUNES_A_VIERNES)], (12, 35)),
+    ("Crazy Park", "Entretenimiento", [("otro", 50, "Duplica tu recarga (mínimo B/. 15.00)", LUNES_A_MIERCOLES)], (15, 40)),
+    ("SK Karts", "Entretenimiento", [("porcentaje", 10, "10 % en carrera de adultos (no aplica con otras promociones)", LUNES_A_JUEVES)], (20, 45)),
+]
+
+# Catálogo ficticio anterior (--catalogo demo).
 COMERCIOS = [
     ("Café Campus", "Comida", [("porcentaje", 15, "15 % en bebidas")], (3, 9)),
     ("Burger Norte", "Comida", [("2x1", 50, "2x1 en combos los martes"), ("porcentaje", 10, "10 % en el menú")], (6, 15)),
@@ -45,15 +86,15 @@ FACULTADES = {
     "Facultad de Ingeniería de Sistemas Computacionales": (
         5200, ["Campus Víctor Levi Sasso"],
         ["Licenciatura en Ingeniería de Software", "Licenciatura en Ciberseguridad", "Licenciatura en Desarrollo de Software"],
-        {"Tecnología": 3.0, "Comida": 1.2}),
+        {"Tecnología": 3.0, "Comida": 1.2, "Restaurantes": 1.3}),
     "Facultad de Ingeniería Industrial": (
         4600, ["Campus Víctor Levi Sasso", "Centro Regional de Panamá Oeste"],
         ["Licenciatura en Ingeniería Industrial", "Licenciatura en Logística y Transporte"],
-        {"Ropa y calzado": 1.6}),
+        {"Ropa y calzado": 1.6, "Shopping": 1.4}),
     "Facultad de Ingeniería Civil": (
         4100, ["Campus Víctor Levi Sasso", "Centro Regional de Chiriquí"],
         ["Licenciatura en Ingeniería Civil", "Licenciatura en Ingeniería Ambiental"],
-        {"Deportes": 1.8}),
+        {"Deportes": 1.8, "Restaurantes": 1.2}),
     "Facultad de Ingeniería Eléctrica": (
         3300, ["Campus Víctor Levi Sasso"],
         ["Licenciatura en Ingeniería Electromecánica", "Licenciatura en Ingeniería Eléctrica y Electrónica"],
@@ -61,11 +102,11 @@ FACULTADES = {
     "Facultad de Ingeniería Mecánica": (
         2800, ["Campus Víctor Levi Sasso"],
         ["Licenciatura en Ingeniería Mecánica", "Licenciatura en Ingeniería Aeronáutica"],
-        {"Entretenimiento": 1.5}),
+        {"Entretenimiento": 1.8}),
     "Facultad de Ciencias y Tecnología": (
         1700, ["Campus Víctor Levi Sasso"],
         ["Licenciatura en Comunicación Ejecutiva Bilingüe", "Licenciatura en Ingeniería Forestal"],
-        {"Librería y papelería": 2.2, "Salud y belleza": 1.6}),
+        {"Librería y papelería": 2.2, "Salud y belleza": 1.6, "Shopping": 1.3}),
 }
 
 # Peso por hora del día (10:00 a 21:00); picos de almuerzo y salida de clases.
@@ -83,6 +124,10 @@ def main() -> None:
     parser.add_argument("--dias", type=int, default=120, help="días de historia (por defecto 120)")
     parser.add_argument("--reiniciar", action="store_true", help="borra comercios, descuentos y canjes antes de cargar")
     parser.add_argument("--semilla", type=int, default=2026)
+    parser.add_argument("--catalogo", choices=["actitud", "demo"], default="actitud",
+                        help="actitud = comercios reales del arte oficial (por defecto); demo = tiendas ficticias")
+    parser.add_argument("--sin-historial", action="store_true",
+                        help="solo comercios y ofertas, sin canjes ni validaciones simuladas (para pruebas de campo)")
     args = parser.parse_args()
 
     config = leer_configuracion()
@@ -91,20 +136,31 @@ def main() -> None:
 
     with sesiones.begin() as sesion:
         if args.reiniciar:
+            # Los usuarios de comercio apuntan a tiendas que se van a borrar; el administrador se conserva.
+            sesion.execute(delete(Usuario).where(Usuario.rol == "comercio"))
             for modelo in (Canje, Descuento, Comercio, MatriculaFacultad, Validacion):
                 sesion.execute(delete(modelo))
         elif sesion.scalar(select(func.count()).select_from(Comercio)):
             raise SystemExit("Ya hay comercios cargados. Usa --reiniciar para reemplazarlos.")
 
         comercios = []
-        for nombre, categoria, ofertas, montos in COMERCIOS:
+        catalogo = COMERCIOS_ACTITUD if args.catalogo == "actitud" else [
+            (n, c, [(t, p, d, "0123456") for t, p, d in o], m) for n, c, o, m in COMERCIOS]
+        for nombre, categoria, ofertas, montos in catalogo:
             comercio = Comercio(nombre=nombre, categoria=categoria)
-            comercio.descuentos = [Descuento(tipo=t, porcentaje=p, descripcion=d) for t, p, d in ofertas]
+            comercio.descuentos = [
+                Descuento(tipo=t, porcentaje=p, descripcion=d, dias_semana=dias, principal=(i == 0), activo=True,
+                          vigente_hasta=VIGENCIA_ACTITUD if args.catalogo == "actitud" else None,
+                          condiciones=CONDICIONES_ACTITUD if args.catalogo == "actitud" else None)
+                for i, (t, p, d, dias) in enumerate(ofertas)]
             sesion.add(comercio)
             comercios.append((comercio, montos))
         for facultad, (matricula, *_resto) in FACULTADES.items():
             sesion.add(MatriculaFacultad(facultad=facultad, estudiantes=matricula))
         sesion.flush()
+        if args.sin_historial:
+            print(f"✔ {len(catalogo)} comercios ({args.catalogo}) sin historial: listo para las pruebas de campo.")
+            return
 
         # Estudiantes simulados: unos pocos muy frecuentes, la mayoría ocasionales.
         nombres_fac = list(FACULTADES)
@@ -132,7 +188,11 @@ def main() -> None:
                 est = azar.choices(estudiantes, weights=pesos_est)[0]
                 preferencias = FACULTADES[est["facultad"]][3]
                 comercio, montos = azar.choices(comercios, weights=[preferencias.get(c.categoria, 1.0) for c, _ in comercios])[0]
-                descuento = azar.choice(comercio.descuentos)
+                # Solo ofertas que aplican ese día (p. ej. ActitUd: de lunes a viernes).
+                vigentes = [x for x in comercio.descuentos if x.aplica_el(dia.date())]
+                if not vigentes:
+                    continue
+                descuento = azar.choice(vigentes)
                 hora = elegir(horas, azar)
                 momento = dia.replace(hour=hora, minute=azar.randint(0, 59), second=azar.randint(0, 59))
                 if momento > ahora_panama():
@@ -153,7 +213,9 @@ def main() -> None:
             momento = hoy - timedelta(days=azar.randint(0, 25)) + timedelta(hours=azar.randint(12, 19), minutes=azar.randint(0, 40))
             if momento > ahora_panama():
                 momento -= timedelta(days=1)
-            (c1, _), (c2, _) = azar.sample(comercios, 2)
+            while momento.weekday() >= 5 and args.catalogo == "actitud":
+                momento -= timedelta(days=1)
+            (c1, _), (c2, _) = azar.sample([c for c in comercios if c[0].descuentos[0].aplica_el(momento.date())], 2)
             for comercio, desfase in ((c1, 0), (c2, azar.randint(2, 7))):
                 desc = comercio.descuentos[0]
                 sesion.add(Canje(comercio_id=comercio.id, descuento_id=desc.id, estudiante=est["id"], facultad=est["facultad"],
@@ -171,7 +233,7 @@ def main() -> None:
         sesion.add_all(Validacion(criterio="qr" if azar.random() < 0.75 else "cedula", resultado=r, consultado_en=m)
                        for r, m in filas_validacion if m <= ahora_panama())
 
-    print(f"✔ {len(COMERCIOS)} comercios, {len(FACULTADES)} facultades y {total} canjes simulados en {args.dias + 1} días.")
+    print(f"✔ {len(catalogo)} comercios ({args.catalogo}), {len(FACULTADES)} facultades y {total} canjes simulados en {args.dias + 1} días.")
 
 
 if __name__ == "__main__":

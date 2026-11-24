@@ -36,6 +36,8 @@ class Configuracion(BaseSettings):
     admin_nombre: str = "Administración Altaplaza"
     # Un mismo estudiante validado de nuevo en la misma tienda dentro de esta ventana no cuenta como otro canje.
     ventana_canje_min: int = 10
+    # Meta de tiempo de respuesta para el reporte de validación (objetivo 6). Se reporta qué % la cumple.
+    meta_respuesta_ms: int = 2000
 
     @property
     def origenes_cors(self) -> list[str]:

@@ -101,7 +101,8 @@ def test_bitacora_sin_datos_personales(api):
     assert bitacora(api) == [("cedula", "ACTIVO"), ("qr", "INACTIVO"), ("cedula", "NO_ENCONTRADO"),
                              ("cedula", "NO_VERIFICADO")]
     columnas = set(Validacion.__table__.columns.keys())
-    assert columnas == {"id", "criterio", "resultado", "consultado_en"}
+    # Solo metadatos para el reporte de validación: nunca cédula, nombre ni el QR.
+    assert columnas == {"id", "criterio", "resultado", "tiempo_ms", "comercio_id", "consultado_en"}
 
 
 def test_salud(api):

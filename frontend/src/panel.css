@@ -1,0 +1,584 @@
+/* Panel administrativo y panel del comercio (pestañas, ofertas, formularios, comercios). */
+
+.panel-encabezado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panel-encabezado .sesion-admin {
+  margin-left: 0;
+}
+
+.sesion-rol {
+  color: var(--primario);
+}
+
+/* ---------------------------------------------------------------- pestañas */
+
+.pestanas-panel {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--superficie);
+  box-shadow: var(--sombra);
+  width: max-content;
+  max-width: 100%;
+  scrollbar-width: none;
+}
+
+.pestana-panel {
+  flex: none;
+  min-height: 40px;
+  padding: 6px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--texto-suave);
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.pestana-panel:hover {
+  color: var(--texto);
+}
+
+.pestana-panel[aria-selected='true'] {
+  background: var(--negro);
+  color: #fff;
+}
+
+.pestana-panel:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
+}
+
+.pestanas-secundarias {
+  box-shadow: var(--sombra-s);
+  border: 1px solid var(--borde);
+}
+
+@media (prefers-color-scheme: dark) {
+  .pestana-panel[aria-selected='true'] {
+    background: var(--rosa);
+  }
+}
+
+/* ---------------------------------------------------------------- botones y avisos */
+
+.boton-secundario-claro {
+  min-height: 38px;
+  padding: 6px 14px;
+  border: 1px solid var(--borde);
+  background: var(--superficie);
+  color: var(--texto);
+  font-size: 0.88rem;
+  box-shadow: var(--sombra-s);
+}
+
+.boton-secundario-claro:hover {
+  color: var(--primario);
+}
+
+.boton-peligro {
+  color: var(--inactivo);
+}
+
+.boton-peligro:hover {
+  background: var(--inactivo-suave);
+}
+
+.boton-texto:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.aviso-ok {
+  background: var(--activo-suave);
+  color: var(--activo-2);
+}
+
+@media (prefers-color-scheme: dark) {
+  .aviso-ok {
+    color: #9bd96b;
+  }
+}
+
+.texto-tenue {
+  color: var(--texto-tenue);
+}
+
+.acciones-panel {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ---------------------------------------------------------------- chips */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.chip-principal {
+  background: var(--primario-suave);
+  color: var(--rosa-2);
+}
+
+.chip-hoy {
+  background: var(--activo-suave);
+  color: var(--activo-2);
+}
+
+.chip-apagado {
+  background: var(--superficie-2);
+  color: var(--texto-suave);
+  border: 1px solid var(--borde);
+}
+
+@media (prefers-color-scheme: dark) {
+  .chip-principal {
+    color: #ff7cc6;
+  }
+  .chip-hoy {
+    color: #9bd96b;
+  }
+}
+
+/* ---------------------------------------------------------------- ofertas */
+
+.ofertas {
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+
+.ofertas-cargando {
+  padding: 24px;
+  color: var(--texto-suave);
+}
+
+.oferta-hoy {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border-left: 6px solid var(--lima);
+}
+
+.oferta-hoy.sin-oferta {
+  border-left-color: var(--aviso);
+}
+
+.oferta-hoy-icono {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--negro);
+  color: var(--lima);
+}
+
+.sin-oferta .oferta-hoy-icono {
+  color: var(--aviso);
+}
+
+.oferta-hoy-titulo {
+  font-family: var(--fuente-titulo);
+  font-size: 1.1rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  line-height: 1.1;
+}
+
+.oferta-hoy-detalle {
+  color: var(--texto-suave);
+  font-size: 0.92rem;
+}
+
+.oferta-hoy .chip {
+  margin-left: auto;
+}
+
+.lista-ofertas {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.oferta {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 6px 14px;
+  padding: 14px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie);
+}
+
+.oferta-inactiva {
+  background: var(--superficie-2);
+}
+
+.oferta-inactiva .oferta-valor,
+.oferta-inactiva .oferta-descripcion {
+  opacity: 0.6;
+}
+
+.oferta-valor {
+  display: grid;
+  place-items: center;
+  min-width: 64px;
+  height: 52px;
+  padding: 0 10px;
+  border-radius: 12px;
+  background: var(--lima);
+  color: var(--negro);
+  font-family: var(--fuente-titulo);
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.oferta-cuerpo {
+  min-width: 0;
+}
+
+.oferta-descripcion {
+  font-weight: 700;
+}
+
+.oferta-reglas {
+  color: var(--texto-suave);
+  font-size: 0.86rem;
+}
+
+.oferta-condiciones {
+  margin-top: 2px;
+  color: var(--texto-tenue);
+  font-size: 0.8rem;
+}
+
+.oferta-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.oferta-acciones {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  justify-content: flex-end;
+  border-top: 1px solid var(--borde);
+  padding-top: 6px;
+}
+
+@media (min-width: 760px) {
+  .oferta {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+  }
+  .oferta-acciones {
+    grid-column: auto;
+    flex-direction: column;
+    align-items: flex-end;
+    border-top: 0;
+    padding-top: 0;
+  }
+}
+
+/* ---------------------------------------------------------------- formularios */
+
+.formulario-oferta {
+  margin-bottom: 14px;
+  padding: 16px;
+  border: 2px solid var(--primario);
+  border-radius: var(--radio);
+  background: var(--superficie);
+}
+
+.formulario-suelto {
+  margin-bottom: 0;
+}
+
+.formulario-oferta h3,
+.usuarios-comercio h3 {
+  margin-bottom: 10px;
+  font-family: var(--fuente-titulo);
+  font-size: 1.2rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.campos-oferta {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+@media (min-width: 640px) {
+  .campos-oferta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .campo-ancho {
+    grid-column: 1 / -1;
+  }
+}
+
+.campo-panel {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.campo-panel .login-campo {
+  margin-bottom: 0;
+  height: 46px;
+}
+
+.campo-corto {
+  max-width: 140px;
+}
+
+.campo-panel .campo-texto {
+  height: auto;
+  min-height: 64px;
+  padding: 10px 14px;
+  resize: vertical;
+}
+
+.opciones-tipo,
+.opciones-dias {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.chip-boton {
+  min-height: 40px;
+  padding: 6px 14px;
+  border: 2px solid var(--borde);
+  border-radius: 999px;
+  background: var(--superficie-2);
+  color: var(--texto);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chip-dia {
+  width: 42px;
+  padding: 0;
+}
+
+.chip-boton[aria-pressed='true'] {
+  border-color: var(--negro);
+  background: var(--negro);
+  color: #fff;
+}
+
+@media (prefers-color-scheme: dark) {
+  .chip-boton[aria-pressed='true'] {
+    border-color: var(--rosa);
+    background: var(--rosa);
+  }
+}
+
+.chip-boton:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
+}
+
+.casillas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+
+.casilla {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.casilla input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--primario);
+}
+
+.formulario-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.formulario-oferta .aviso-linea {
+  margin-top: 12px;
+}
+
+/* ---------------------------------------------------------------- comercios (admin) */
+
+.campo-buscar {
+  max-width: 240px;
+  height: 42px;
+  margin: 0;
+}
+
+.tabla-comercios td {
+  white-space: normal;
+  vertical-align: middle;
+}
+
+.tabla-comercios .celda-nombre {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.detalle-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+.detalle-titulo {
+  color: #fff;
+  font-family: var(--fuente-titulo);
+  font-size: 1.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.detalle-categoria {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--lima);
+  color: var(--negro);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.usuarios-comercio {
+  border-top: 1px solid var(--borde);
+  padding-top: 14px;
+}
+
+.lista-usuarios {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.lista-usuarios li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--superficie-2);
+  font-size: 0.9rem;
+}
+
+.lista-usuarios .chip {
+  margin-left: 8px;
+}
+
+.usuario-inactivo b {
+  opacity: 0.6;
+}
+
+.campos-usuario {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.campos-usuario .login-campo {
+  height: 44px;
+  margin: 0;
+}
+
+@media (min-width: 760px) {
+  .campos-usuario {
+    grid-template-columns: 1fr 1.3fr 1fr auto;
+  }
+}
+
+/* ---------------------------------------------------------------- reporte de validación */
+
+.definiciones h2 {
+  margin-bottom: 8px;
+  font-family: var(--fuente-titulo);
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.definiciones dl {
+  display: grid;
+  gap: 4px 18px;
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.definiciones dt {
+  font-weight: 700;
+}
+
+.definiciones dd {
+  margin: 0 0 8px;
+  color: var(--texto-suave);
+}
+
+@media (min-width: 760px) {
+  .definiciones dl {
+    grid-template-columns: 180px minmax(0, 1fr);
+  }
+  .definiciones dd {
+    margin: 0;
+  }
+}
+
+/* ---------------------------------------------------------------- validador con sesión de tienda */
+
+.tienda-fija {
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--primario-suave);
+  color: var(--texto);
+  font-size: 0.92rem;
+}

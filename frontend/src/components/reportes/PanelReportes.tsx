@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { fmt, obtenerReporte, reporteriaDisponible, type Reporte } from '../../services/reportes';
-import { cerrarSesion, ErrorSesion, sesionGuardada, type Sesion } from '../../services/sesion';
-import { IconoAlerta, IconoReintentar, IconoSalir } from '../Iconos';
-import { LoginAdmin } from './LoginAdmin';
+import { fmt, obtenerReporte, type Reporte } from '../../services/reportes';
+import { ErrorSesion } from '../../services/sesion';
+import { IconoAlerta, IconoReintentar } from '../Iconos';
 import { BarrasHorizontales, GraficoLinea, MapaCalor, TarjetaGrafico } from './Graficos';
 import '../../reportes.css';
 
-const RANGOS = [
+export const RANGOS = [
   { dias: 7, texto: '7 días' },
   { dias: 30, texto: '30 días' },
   { dias: 90, texto: '90 días' },
@@ -14,7 +13,7 @@ const RANGOS = [
 
 const corto = (facultad: string) => facultad.replace(/^Facultad de /, '').replace(/^Ingeniería (de )?/, 'Ing. ');
 
-function descargarCsv(nombre: string, columnas: string[], filas: (string | number)[][]) {
+export function descargarCsv(nombre: string, columnas: string[], filas: (string | number)[][]) {
   const celda = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
   const contenido = [columnas, ...filas].map((f) => f.map(celda).join(',')).join('\r\n');
   const enlace = document.createElement('a');
@@ -24,80 +23,61 @@ function descargarCsv(nombre: string, columnas: string[], filas: (string | numbe
   URL.revokeObjectURL(enlace.href);
 }
 
-export function PanelReportes() {
+/** Botones de periodo (7, 30, 90 días) compartidos por las pestañas del panel. */
+export function SelectorPeriodo({ dias, onCambiar }: { dias: number; onCambiar: (dias: number) => void }) {
+  return (
+    <div className="segmentado segmentado-compacto" role="group" aria-label="Periodo">
+      {RANGOS.map((r) => (
+        <button key={r.dias} type="button" className="segmento" aria-pressed={dias === r.dias} onClick={() => onCambiar(r.dias)}>
+          {r.texto}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Aviso de error con botón para reintentar. */
+export function ErrorPanel({ mensaje, onReintentar }: { mensaje: string; onReintentar: () => void }) {
+  return (
+    <div className="aviso-linea aviso-error panel-error" role="alert">
+      <IconoAlerta width={18} height={18} />
+      {mensaje}
+      <button type="button" className="boton-texto" onClick={onReintentar}>
+        <IconoReintentar width={16} height={16} /> Reintentar
+      </button>
+    </div>
+  );
+}
+
+interface Props {
+  token: string;
+  onSesionVencida: (aviso: string) => void;
+}
+
+/** Pestaña "Uso del programa" del administrador: canjes, horarios, tiendas, facultades y descuentos. */
+export function PanelReportes({ token, onSesionVencida }: Props) {
   const [dias, setDias] = useState(30);
   const [reporte, setReporte] = useState<Reporte | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [intento, setIntento] = useState(0);
-  const [sesion, setSesion] = useState<Sesion | null>(sesionGuardada);
-  const [avisoSesion, setAvisoSesion] = useState<string | null>(null);
-
-  function salir(aviso: string | null = null) {
-    cerrarSesion();
-    setSesion(null);
-    setReporte(null);
-    setAvisoSesion(aviso);
-  }
 
   useEffect(() => {
-    if (!reporteriaDisponible || !sesion) return;
     const control = new AbortController();
     setError(null);
-    obtenerReporte(dias, sesion.token, control.signal)
+    obtenerReporte(dias, token, control.signal)
       .then(setReporte)
       .catch((e: unknown) => {
         if (e instanceof DOMException && e.name === 'AbortError') return;
-        if (e instanceof ErrorSesion) return salir(e.message);
+        if (e instanceof ErrorSesion) return onSesionVencida(e.message);
         setError(e instanceof Error ? e.message : 'No se pudo cargar el reporte.');
       });
     return () => control.abort();
-  }, [dias, intento, sesion]);
-
-  if (!reporteriaDisponible) {
-    return (
-      <div className="panel-vacio tarjeta">
-        <h2>La reportería necesita el servidor</h2>
-        <p>
-          Configura <code>VITE_API_URL=/api</code> en <code>frontend/.env</code>, levanta <code>docker compose up</code> y carga
-          datos de ejemplo con <code>docker compose exec api python -m scripts.sembrar_reporteria</code>.
-        </p>
-      </div>
-    );
-  }
-
-  if (!sesion) {
-    return (
-      <LoginAdmin
-        aviso={avisoSesion}
-        onIniciar={(nueva) => {
-          setAvisoSesion(null);
-          setSesion(nueva);
-        }}
-      />
-    );
-  }
+  }, [dias, intento, token, onSesionVencida]);
 
   return (
-    <div className="panel-reportes">
-      <div className="saludo saludo-reportes">
-        <h1>Reportes</h1>
-        <p>Cómo se usa el programa: horarios, tiendas, facultades y descuentos.</p>
-      </div>
-
+    <>
       <div className="filtros">
-        <div className="segmentado segmentado-compacto" role="group" aria-label="Periodo">
-          {RANGOS.map((r) => (
-            <button
-              key={r.dias}
-              type="button"
-              className="segmento"
-              aria-pressed={dias === r.dias}
-              onClick={() => setDias(r.dias)}
-            >
-              {r.texto}
-            </button>
-          ))}
-        </div>
+        <SelectorPeriodo dias={dias} onCambiar={setDias} />
         {reporte && (
           <span className="filtros-periodo">
             {fmt.fecha(reporte.periodo.desde)} – {fmt.fecha(reporte.periodo.hasta)}
@@ -106,29 +86,12 @@ export function PanelReportes() {
         <span className="etiqueta-simulado" title="Generados con scripts/sembrar_reporteria.py">
           Datos simulados
         </span>
-        <span className="sesion-admin">
-          <span className="sesion-nombre" title={`Usuario: ${sesion.usuario.usuario}`}>
-            {sesion.usuario.nombre}
-          </span>
-          <button type="button" className="boton-texto" onClick={() => salir()}>
-            <IconoSalir width={16} height={16} /> Cerrar sesión
-          </button>
-        </span>
       </div>
 
-      {error && (
-        <div className="aviso-linea aviso-error panel-error" role="alert">
-          <IconoAlerta width={18} height={18} />
-          {error}
-          <button type="button" className="boton-texto" onClick={() => setIntento((n) => n + 1)}>
-            <IconoReintentar width={16} height={16} /> Reintentar
-          </button>
-        </div>
-      )}
-
+      {error && <ErrorPanel mensaje={error} onReintentar={() => setIntento((n) => n + 1)} />}
       {!reporte && !error && <EsqueletoPanel />}
       {reporte && <Contenido reporte={reporte} />}
-    </div>
+    </>
   );
 }
 
@@ -339,7 +302,7 @@ function Contenido({ reporte }: { reporte: Reporte }) {
   );
 }
 
-function Indicador({ titulo, valor, nota, cambio, destacado }: { titulo: string; valor: string; nota: string; cambio?: number | null; destacado?: boolean }) {
+export function Indicador({ titulo, valor, nota, cambio, destacado }: { titulo: string; valor: string; nota: string; cambio?: number | null; destacado?: boolean }) {
   return (
     <div className={`indicador${destacado ? ' indicador-destacado' : ''}`}>
       <p className="indicador-titulo">{titulo}</p>
@@ -356,7 +319,7 @@ function Indicador({ titulo, valor, nota, cambio, destacado }: { titulo: string;
   );
 }
 
-function EsqueletoPanel() {
+export function EsqueletoPanel() {
   return (
     <div className="indicadores" aria-busy="true" aria-label="Cargando reportes">
       {Array.from({ length: 8 }, (_, i) => (

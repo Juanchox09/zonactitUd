@@ -39,8 +39,8 @@ export function LoginAdmin({ onIniciar, aviso }: Props) {
       <div className="login-icono" aria-hidden="true">
         <IconoCandado width={26} height={26} />
       </div>
-      <h1 id="login-titulo">Acceso de administración</h1>
-      <p className="login-texto">Los reportes del programa solo los puede ver un administrador de ActitUd.</p>
+      <h1 id="login-titulo">Acceso al panel</h1>
+      <p className="login-texto">Para la administración de ActitUd y para el personal de los comercios afiliados.</p>
 
       <form className="login-formulario" onSubmit={enviar} noValidate>
         <label className="etiqueta" htmlFor="login-usuario">

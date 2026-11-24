@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AvisoDemo } from './components/AvisoDemo';
 import { Bienvenida } from './components/Bienvenida';
 import { Cabecera, type Conexion, type Vista } from './components/Cabecera';
-import { PanelReportes } from './components/reportes/PanelReportes';
+import { Panel } from './components/panel/Panel';
 import { EscanerQr } from './components/EscanerQr';
 import { FormularioCedula } from './components/FormularioCedula';
 import { Historial } from './components/Historial';
@@ -10,6 +10,7 @@ import { IconoQr, IconoTeclado } from './components/Iconos';
 import { Resultado, type EstadoConsulta } from './components/Resultado';
 import { SelectorTienda } from './components/SelectorTienda';
 import { guardarTienda, listarComercios, tiendaGuardada, tiendasDisponibles, type Comercio } from './services/comercios';
+import { sesionGuardada } from './services/sesion';
 import { ErrorValidacion, servicioValidacion } from './services/validacion';
 import type { Criterio, ResultadoValidacion } from './types';
 import { interpretarQr } from './utils/qr';
@@ -19,7 +20,15 @@ type Modo = 'qr' | 'cedula';
 
 const MAX_HISTORIAL = 20;
 
-const vistaDesdeUrl = (): Vista => (window.location.hash.startsWith('#/reportes') ? 'reportes' : 'validar');
+const vistaDesdeUrl = (): Vista => (/^#\/(reportes|panel)/.test(window.location.hash) ? 'reportes' : 'validar');
+
+/** Si el personal de una tienda inició sesión en el panel, el validador usa su tienda y no se puede cambiar. */
+function tiendaDeSesion(): { id: number; nombre: string } | null {
+  const sesion = sesionGuardada();
+  return sesion?.usuario.rol === 'comercio' && sesion.usuario.comercioId
+    ? { id: sesion.usuario.comercioId, nombre: sesion.usuario.comercio ?? 'tu tienda' }
+    : null;
+}
 
 export default function App() {
   const [modo, setModo] = useState<Modo>('qr');
@@ -34,12 +43,14 @@ export default function App() {
   const [comercios, setComercios] = useState<Comercio[]>([]);
   const [tienda, setTienda] = useState<number | null>(tiendaGuardada);
   const [faltaTienda, setFaltaTienda] = useState(false);
+  const [tiendaSesion, setTiendaSesion] = useState(tiendaDeSesion);
+  const tiendaEfectiva = tiendaSesion?.id ?? tienda;
   const consultaActual = useRef(0);
   const sonidoRef = useRef(sonido);
   sonidoRef.current = sonido;
   // La validación lee la tienda y la lista vigentes sin recrear los callbacks del escáner.
   const tiendaRef = useRef({ tienda, hayTiendas: false });
-  tiendaRef.current = { tienda, hayTiendas: comercios.length > 0 };
+  tiendaRef.current = { tienda: tiendaEfectiva, hayTiendas: comercios.length > 0 };
 
   const cargarComercios = useCallback(async () => {
     if (!tiendasDisponibles) return;
@@ -144,6 +155,7 @@ export default function App() {
   useEffect(() => {
     const alCambiar = () => {
       setVista(vistaDesdeUrl());
+      setTiendaSesion(tiendaDeSesion());
       window.scrollTo({ top: 0 });
     };
     window.addEventListener('hashchange', alCambiar);
@@ -166,7 +178,7 @@ export default function App() {
 
       {vista === 'reportes' ? (
         <main className="layout">
-          <PanelReportes />
+          <Panel />
         </main>
       ) : (
         <main className="layout">
@@ -177,7 +189,12 @@ export default function App() {
   
           <div className="columna-principal">
             <section className="tarjeta panel-validacion">
-              {comercios.length > 0 && (
+              {comercios.length > 0 && tiendaSesion && (
+                <p className="tienda-fija">
+                  Validando para <b>{tiendaSesion.nombre}</b> (sesión de la tienda)
+                </p>
+              )}
+              {comercios.length > 0 && !tiendaSesion && (
                 <SelectorTienda comercios={comercios} seleccion={tienda} onElegir={elegirTienda} falta={faltaTienda} />
               )}
               <div className="segmentado" role="tablist" aria-label="Método de validación">
@@ -210,7 +227,7 @@ export default function App() {
   
               {modo === 'qr' ? (
                 <div role="tabpanel" id="panel-qr" aria-labelledby="pestana-qr">
-                  <EscanerQr onDetectado={alDetectarQr} deshabilitado={cargando || (comercios.length > 0 && !tienda)} senalInicio={senalCamara} />
+                  <EscanerQr onDetectado={alDetectarQr} deshabilitado={cargando || (comercios.length > 0 && !tiendaEfectiva)} senalInicio={senalCamara} />
                 </div>
               ) : (
                 <div role="tabpanel" id="panel-cedula" aria-labelledby="pestana-cedula">

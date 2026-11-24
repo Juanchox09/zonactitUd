@@ -186,6 +186,107 @@ def calcular(
     }
 
 
+@dataclass(frozen=True)
+class FilaValidacion:
+    consultado_en: datetime
+    criterio: str
+    resultado: str
+    tiempo_ms: int | None
+    comercio: str | None
+
+
+RESULTADOS = ["ACTIVO", "INACTIVO", "NO_ENCONTRADO", "NO_VERIFICADO"]
+TRAMOS_MS = [(0, 250, "< 250 ms"), (250, 500, "250–500 ms"), (500, 1000, "0,5–1 s"),
+             (1000, 2000, "1–2 s"), (2000, 5000, "2–5 s"), (5000, None, "≥ 5 s")]
+
+
+def percentil(valores: list[int], p: float) -> int | None:
+    """Percentil por rango más cercano (valores ordenados)."""
+    if not valores:
+        return None
+    indice = max(0, min(len(valores) - 1, int(-(-p * len(valores) // 100)) - 1))
+    return valores[indice]
+
+
+def _tiempos(filas: Iterable[FilaValidacion], meta_ms: int) -> dict:
+    ms = sorted(f.tiempo_ms for f in filas if f.tiempo_ms is not None)
+    return {
+        "medidas": len(ms),
+        "promedio": round(sum(ms) / len(ms)) if ms else None,
+        "mediana": percentil(ms, 50),
+        "p90": percentil(ms, 90),
+        "p95": percentil(ms, 95),
+        "minimo": ms[0] if ms else None,
+        "maximo": ms[-1] if ms else None,
+        "dentroMeta": _pct(sum(1 for t in ms if t <= meta_ms), len(ms)),
+    }
+
+
+def calcular_validacion(filas: list[FilaValidacion], desde: date, hasta: date, meta_ms: int = 2000) -> dict:
+    """Reporte de validación (objetivo 6 del anteproyecto): tasa de validaciones exitosas y tiempos de respuesta.
+
+    Exitosa = el sistema dio una respuesta definitiva (ACTIVO, INACTIVO o NO_ENCONTRADO).
+    Fallida = NO_VERIFICADO: la API de la UTP no respondió a tiempo o dio error; no se pudo decidir."""
+    resultados = Counter(f.resultado for f in filas)
+    total = len(filas)
+    exitosas = total - resultados["NO_VERIFICADO"]
+
+    por_fecha: dict[date, list[FilaValidacion]] = defaultdict(list)
+    for f in filas:
+        por_fecha[f.consultado_en.date()].append(f)
+    dias = (hasta - desde).days + 1
+    por_dia = []
+    for i in range(dias):
+        d = desde + timedelta(days=i)
+        lista = por_fecha.get(d, [])
+        ms = sorted(f.tiempo_ms for f in lista if f.tiempo_ms is not None)
+        por_dia.append({"fecha": d.isoformat(), "total": len(lista),
+                        "exitosas": sum(1 for f in lista if f.resultado != "NO_VERIFICADO"),
+                        "activos": sum(1 for f in lista if f.resultado == "ACTIVO"),
+                        "medianaMs": percentil(ms, 50)})
+
+    def grupo(clave) -> list[dict]:
+        grupos: dict[str, list[FilaValidacion]] = defaultdict(list)
+        for f in filas:
+            grupos[clave(f)].append(f)
+        salida = []
+        for nombre, lista in grupos.items():
+            ok = sum(1 for f in lista if f.resultado != "NO_VERIFICADO")
+            ms = sorted(f.tiempo_ms for f in lista if f.tiempo_ms is not None)
+            salida.append({"nombre": nombre, "total": len(lista), "exitosas": ok, "tasaExito": _pct(ok, len(lista)),
+                           "activos": sum(1 for f in lista if f.resultado == "ACTIVO"),
+                           "medianaMs": percentil(ms, 50), "p95Ms": percentil(ms, 95)})
+        return sorted(salida, key=lambda g: (-g["total"], g["nombre"]))
+
+    medidas = [f.tiempo_ms for f in filas if f.tiempo_ms is not None]
+    tramos = [{"tramo": etiqueta,
+               "validaciones": sum(1 for t in medidas if t >= minimo and (maximo is None or t < maximo))}
+              for minimo, maximo, etiqueta in TRAMOS_MS]
+    nombres_criterio = {"cedula": "Cédula escrita", "qr": "Escaneo QR", "imagen": "Foto del QR"}
+
+    return {
+        "periodo": {"desde": desde.isoformat(), "hasta": hasta.isoformat(), "dias": dias},
+        "metaMs": meta_ms,
+        "resumen": {
+            "total": total,
+            "exitosas": exitosas,
+            "tasaExito": _pct(exitosas, total),
+            "activos": resultados["ACTIVO"],
+            "tasaActivos": _pct(resultados["ACTIVO"], exitosas),
+            "noVerificadas": resultados["NO_VERIFICADO"],
+        },
+        "resultados": [{"resultado": r, "validaciones": resultados[r], "participacion": _pct(resultados[r], total)}
+                       for r in RESULTADOS],
+        "tiempos": _tiempos(filas, meta_ms),
+        "tiemposExitosas": _tiempos([f for f in filas if f.resultado != "NO_VERIFICADO"], meta_ms),
+        "tramos": tramos,
+        "porDia": por_dia,
+        "porCriterio": [{**g, "nombre": nombres_criterio.get(g["nombre"], g["nombre"])}
+                        for g in grupo(lambda f: f.criterio)],
+        "porComercio": grupo(lambda f: f.comercio or "Sin tienda elegida"),
+    }
+
+
 def detectar_alertas(filas: list[FilaCanje]) -> list[dict]:
     """Patrones que merecen revisión. No acusan: el personal del mall decide."""
     alertas = []

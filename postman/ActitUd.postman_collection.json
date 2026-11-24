@@ -36,6 +36,26 @@
     {
       "key": "admin_token",
       "value": ""
+    },
+    {
+      "key": "tienda_id",
+      "value": ""
+    },
+    {
+      "key": "oferta_id",
+      "value": ""
+    },
+    {
+      "key": "tienda_usuario_id",
+      "value": ""
+    },
+    {
+      "key": "comercio_token",
+      "value": ""
+    },
+    {
+      "key": "tienda_usuario",
+      "value": "tienda.postman"
     }
   ],
   "item": [
@@ -525,11 +545,22 @@
             "method": "GET",
             "url": {
               "raw": "{{api}}/carnets/validar?cedula=8-123-456&comercio_id={{comercio_id}}",
-              "host": ["{{api}}"],
-              "path": ["carnets", "validar"],
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "carnets",
+                "validar"
+              ],
               "query": [
-                { "key": "cedula", "value": "8-123-456" },
-                { "key": "comercio_id", "value": "{{comercio_id}}" }
+                {
+                  "key": "cedula",
+                  "value": "8-123-456"
+                },
+                {
+                  "key": "comercio_id",
+                  "value": "{{comercio_id}}"
+                }
               ]
             }
           },
@@ -556,11 +587,22 @@
             "method": "GET",
             "url": {
               "raw": "{{api}}/carnets/validar?cedula=8-234-567&comercio_id={{comercio_id}}",
-              "host": ["{{api}}"],
-              "path": ["carnets", "validar"],
+              "host": [
+                "{{api}}"
+              ],
+              "path": [
+                "carnets",
+                "validar"
+              ],
               "query": [
-                { "key": "cedula", "value": "8-234-567" },
-                { "key": "comercio_id", "value": "{{comercio_id}}" }
+                {
+                  "key": "cedula",
+                  "value": "8-234-567"
+                },
+                {
+                  "key": "comercio_id",
+                  "value": "{{comercio_id}}"
+                }
               ]
             }
           },
@@ -656,8 +698,16 @@
           "request": {
             "method": "POST",
             "url": "{{api}}/auth/login",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{ \"usuario\": \"{{admin_usuario}}\", \"contrasena\": \"incorrecta\" }" }
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"usuario\": \"{{admin_usuario}}\", \"contrasena\": \"incorrecta\" }"
+            }
           },
           "event": [
             {
@@ -675,8 +725,16 @@
           "request": {
             "method": "POST",
             "url": "{{api}}/auth/login",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": { "mode": "raw", "raw": "{ \"usuario\": \"{{admin_usuario}}\", \"contrasena\": \"{{admin_contrasena}}\" }" }
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"usuario\": \"{{admin_usuario}}\", \"contrasena\": \"{{admin_contrasena}}\" }"
+            }
           },
           "event": [
             {
@@ -694,7 +752,12 @@
           "name": "Reporte de 30 días",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{admin_token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
             "url": {
               "raw": "{{api}}/reportes?dias=30",
               "host": [
@@ -717,6 +780,341 @@
               "script": {
                 "exec": [
                   "pm.test(\"200 con resumen\", () => { pm.response.to.have.status(200); pm.expect(pm.response.json()).to.have.property(\"resumen\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Panel del comercio y validación (OE5 y OE6)",
+      "description": "Ejecutar en orden después de «Login admin». Crea una tienda con nombre único, su usuario, publica una oferta, valida en ella y lee métricas y el reporte de validación.",
+      "item": [
+        {
+          "name": "Admin · listar comercios",
+          "request": {
+            "method": "GET",
+            "url": "{{api}}/admin/comercios",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"200 lista\", () => { pm.response.to.have.status(200); pm.expect(pm.response.json()).to.be.an(\"array\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin · afiliar tienda",
+          "request": {
+            "method": "POST",
+            "url": "{{api}}/admin/comercios",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Tienda Postman {{$timestamp}}\",\n  \"categoria\": \"Shopping\",\n  \"activo\": true\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"201 creada\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"tienda_id\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin · crear usuario de la tienda",
+          "request": {
+            "method": "POST",
+            "url": "{{api}}/admin/comercios/{{tienda_id}}/usuarios",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"usuario\": \"tienda{{$timestamp}}\",\n  \"nombre\": \"Caja 1\",\n  \"contrasena\": \"clave-postman-1\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"201 con usuario\", () => { pm.response.to.have.status(201); pm.expect(pm.response.json().usuarios).to.have.length(1); });",
+                  "const u = pm.response.json().usuarios[0];",
+                  "pm.collectionVariables.set(\"tienda_usuario\", u.usuario);",
+                  "pm.collectionVariables.set(\"tienda_usuario_id\", u.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login comercio",
+          "request": {
+            "method": "POST",
+            "url": "{{api}}/auth/login",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"usuario\": \"{{tienda_usuario}}\", \"contrasena\": \"clave-postman-1\" }"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"200 rol comercio\", () => { pm.response.to.have.status(200); pm.expect(pm.response.json().usuario.rol).to.eql(\"comercio\"); });",
+                  "pm.collectionVariables.set(\"comercio_token\", pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Comercio · no puede ver reportes globales (403)",
+          "request": {
+            "method": "GET",
+            "url": "{{api}}/reportes/validacion",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{comercio_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Comercio · publicar oferta principal",
+          "request": {
+            "method": "POST",
+            "url": "{{api}}/panel/comercios/{{tienda_id}}/descuentos",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{comercio_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"porcentaje\",\n  \"porcentaje\": 15,\n  \"descripcion\": \"15 % en mercancía a precio regular\",\n  \"activo\": true,\n  \"principal\": true,\n  \"vigenteDesde\": null,\n  \"vigenteHasta\": \"2026-12-31\",\n  \"diasSemana\": \"0123456\",\n  \"condiciones\": \"No aplica con otras promociones.\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"201 y se aplica hoy\", () => { pm.response.to.have.status(201); pm.expect(pm.response.json().descuentoHoy).to.not.be.null; });",
+                  "pm.collectionVariables.set(\"oferta_id\", pm.response.json().descuentos[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Comercio · regla inválida: vigencia al revés (400)",
+          "request": {
+            "method": "POST",
+            "url": "{{api}}/panel/comercios/{{tienda_id}}/descuentos",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{comercio_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"porcentaje\",\n  \"porcentaje\": 15,\n  \"descripcion\": \"15 % en mercancía a precio regular\",\n  \"activo\": true,\n  \"principal\": true,\n  \"vigenteDesde\": \"2026-12-31\",\n  \"vigenteHasta\": \"2026-01-01\",\n  \"diasSemana\": \"0123456\",\n  \"condiciones\": \"No aplica con otras promociones.\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"400 explica la regla\", () => { pm.response.to.have.status(400); pm.expect(pm.response.json().error).to.include(\"vigencia\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Comercio · editar oferta (2x1 de lunes a viernes)",
+          "request": {
+            "method": "PUT",
+            "url": "{{api}}/panel/comercios/{{tienda_id}}/descuentos/{{oferta_id}}",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{comercio_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipo\": \"2x1\",\n  \"porcentaje\": 50,\n  \"descripcion\": \"2x1 en productos seleccionados\",\n  \"activo\": true,\n  \"principal\": true,\n  \"vigenteDesde\": null,\n  \"vigenteHasta\": \"2026-12-31\",\n  \"diasSemana\": \"01234\",\n  \"condiciones\": \"No aplica con otras promociones.\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"200 con 2x1\", () => { pm.response.to.have.status(200); pm.expect(pm.response.json().descuentos[0].tipo).to.eql(\"2x1\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Validar en la tienda del comercio",
+          "request": {
+            "method": "GET",
+            "url": "{{api}}/carnets/validar?cedula=8-123-456&comercio_id={{tienda_id}}",
+            "header": []
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"activo o tienda sin oferta hoy\", () => pm.expect([200, 400]).to.include(pm.response.code));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Comercio · métricas de 30 días",
+          "request": {
+            "method": "GET",
+            "url": "{{api}}/panel/comercios/{{tienda_id}}/metricas?dias=30",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{comercio_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"200 sin alertas por estudiante\", () => { pm.response.to.have.status(200); pm.expect(pm.response.json()).to.not.have.property(\"alertas\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin · reporte de validación (OE6)",
+          "request": {
+            "method": "GET",
+            "url": "{{api}}/reportes/validacion?dias=30",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"200 con tasa y tiempos\", () => { pm.response.to.have.status(200); const r = pm.response.json(); pm.expect(r.resumen).to.have.property(\"tasaExito\"); pm.expect(r.tiempos).to.have.property(\"mediana\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin · desactivar usuario de la tienda",
+          "request": {
+            "method": "PATCH",
+            "url": "{{api}}/admin/usuarios/{{tienda_usuario_id}}",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"activo\": false\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"200\", () => pm.response.to.have.status(200));"
                 ]
               }
             }

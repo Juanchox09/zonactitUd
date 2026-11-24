@@ -1,5 +1,5 @@
 /**
- * Sesión del administrador (panel de reportes).
+ * Sesión del panel: administración de ActitUd (rol admin) o personal de una tienda (rol comercio).
  *   POST {VITE_API_URL}/auth/login { usuario, contrasena } → { token, expiraEn, usuario }
  * El token se guarda en sessionStorage: se pierde al cerrar la pestaña.
  */
@@ -7,7 +7,10 @@
 export interface UsuarioSesion {
   usuario: string;
   nombre: string;
-  rol: 'admin';
+  rol: 'admin' | 'comercio';
+  /** Solo rol comercio: la tienda que administra. */
+  comercioId?: number | null;
+  comercio?: string | null;
 }
 
 export interface Sesion {
