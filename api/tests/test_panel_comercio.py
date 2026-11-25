@@ -76,7 +76,7 @@ def test_comercio_publica_oferta_y_se_aplica_al_validar(api):
     tienda, _, comercio = tienda_con_usuario(api)
     r = api.post(f"/api/panel/comercios/{tienda}/descuentos", json=oferta(), headers=comercio)
     assert r.status_code == 201 and r.json()["descuentos"][0]["aplicaHoy"] is True
-    validacion = api.get("/api/carnets/validar", params={"cedula": "8-123-456", "comercio_id": tienda}).json()
+    validacion = api.get("/api/carnets/validar", params={"cedula": "8-123-456"}, headers=comercio).json()
     assert validacion["descuento"]["porcentaje"] == 15
 
 
@@ -91,7 +91,7 @@ def test_el_descuento_principal_es_el_que_se_aplica(api):
     detalle = api.put(f"/api/panel/comercios/{tienda}/descuentos/{primero['id']}",
                       json=oferta(principal=True), headers=comercio).json()
     assert [d["principal"] for d in detalle["descuentos"]] == [True, False]
-    validacion = api.get("/api/carnets/validar", params={"cedula": "8-123-456", "comercio_id": tienda}).json()
+    validacion = api.get("/api/carnets/validar", params={"cedula": "8-123-456"}, headers=comercio).json()
     assert validacion["descuento"]["porcentaje"] == 15
 
 
@@ -101,7 +101,7 @@ def test_oferta_fuera_de_sus_dias_o_vencida_no_se_aplica(api):
     api.post(f"/api/panel/comercios/{tienda}/descuentos", json=oferta(diasSemana=otros_dias), headers=comercio)
     api.post(f"/api/panel/comercios/{tienda}/descuentos",
              json=oferta(descripcion="Vencida", vigenteHasta=(hoy() - timedelta(days=1)).isoformat()), headers=comercio)
-    r = api.get("/api/carnets/validar", params={"cedula": "8-123-456", "comercio_id": tienda})
+    r = api.get("/api/carnets/validar", params={"cedula": "8-123-456"}, headers=comercio)
     assert r.status_code == 400 and "vigentes hoy" in r.json()["error"]
     assert all(c["id"] != tienda for c in api.get("/api/comercios").json())
 
@@ -122,7 +122,7 @@ def test_reglas_de_la_oferta(api):
 def test_oferta_usada_no_se_borra_se_desactiva(api):
     tienda, _, comercio = tienda_con_usuario(api)
     usada = api.post(f"/api/panel/comercios/{tienda}/descuentos", json=oferta(), headers=comercio).json()["descuentos"][0]
-    api.get("/api/carnets/validar", params={"cedula": "8-123-456", "comercio_id": tienda})
+    api.get("/api/carnets/validar", params={"cedula": "8-123-456"}, headers=comercio)
     r = api.delete(f"/api/panel/comercios/{tienda}/descuentos/{usada['id']}", headers=comercio)
     assert r.status_code == 409
     nueva = api.post(f"/api/panel/comercios/{tienda}/descuentos", json=oferta(descripcion="Nueva"),
@@ -135,8 +135,8 @@ def test_oferta_usada_no_se_borra_se_desactiva(api):
 def test_metricas_del_comercio(api):
     tienda, _, comercio = tienda_con_usuario(api)
     api.post(f"/api/panel/comercios/{tienda}/descuentos", json=oferta(), headers=comercio)
-    api.get("/api/carnets/validar", params={"cedula": "8-123-456", "comercio_id": tienda})
-    api.get("/api/carnets/validar", params={"cedula": "8-234-567", "comercio_id": tienda})  # inactivo
+    api.get("/api/carnets/validar", params={"cedula": "8-123-456"}, headers=comercio)
+    api.get("/api/carnets/validar", params={"cedula": "8-234-567"}, headers=comercio)  # inactivo
     m = api.get(f"/api/panel/comercios/{tienda}/metricas", params={"dias": 7}, headers=comercio).json()
     assert m["resumen"]["canjes"] == 1 and m["resumen"]["estudiantesUnicos"] == 1
     assert m["ofertas"] == [{"descripcion": "15 % en mercancía a precio regular", "canjes": 1}]
@@ -147,10 +147,11 @@ def test_metricas_del_comercio(api):
 # --- reporte de validación ----------------------------------------------------------------------------
 
 def test_reporte_de_validacion_mide_tiempos_y_tasa_de_exito(api):
-    admin = entrar(api)
-    api.get("/api/carnets/validar", params={"cedula": "8-123-456"})
-    api.get("/api/carnets/validar", params={"cedula": "8-234-567"})
-    api.get("/api/carnets/validar", params={"cedula": "8-999-999"})
+    tienda, admin, comercio = tienda_con_usuario(api)
+    api.post(f"/api/panel/comercios/{tienda}/descuentos", json=oferta(), headers=comercio)
+    api.get("/api/carnets/validar", params={"cedula": "8-123-456"}, headers=comercio)
+    api.get("/api/carnets/validar", params={"cedula": "8-234-567"}, headers=comercio)
+    api.get("/api/carnets/validar", params={"cedula": "8-999-999"}, headers=comercio)
     assert api.get("/api/reportes/validacion").status_code == 401
     r = api.get("/api/reportes/validacion", params={"dias": 7}, headers=admin).json()
     assert r["resumen"]["total"] == 3 and r["resumen"]["exitosas"] == 3 and r["resumen"]["tasaExito"] == 100.0

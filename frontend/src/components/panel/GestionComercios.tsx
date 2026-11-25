@@ -3,6 +3,7 @@ import { panel, type ComercioPanel } from '../../services/panel';
 import { ErrorSesion } from '../../services/sesion';
 import { IconoAlerta, IconoCheck } from '../Iconos';
 import { ErrorPanel } from '../reportes/PanelReportes';
+import { GestionUsuarios } from './GestionUsuarios';
 import { MetricasComercio } from './MetricasComercio';
 import { OfertasComercio, textoValor } from './OfertasComercio';
 
@@ -206,7 +207,7 @@ interface PropsDetalle {
 }
 
 function DetalleComercio({ comercio, token, onSesionVencida, onCambio, onVolver }: PropsDetalle) {
-  const [vista, setVista] = useState<'ofertas' | 'metricas'>('ofertas');
+  const [vista, setVista] = useState<'ofertas' | 'metricas' | 'usuarios'>('ofertas');
   const [aviso, setAviso] = useState<string | null>(null);
 
   async function accion(promesa: Promise<ComercioPanel>, mensaje: string) {
@@ -258,7 +259,6 @@ function DetalleComercio({ comercio, token, onSesionVencida, onCambio, onVolver 
             {comercio.activo ? 'Desactivar tienda' : 'Activar tienda'}
           </button>
         </header>
-        <UsuariosComercio comercio={comercio} onAccion={accion} token={token} />
       </section>
 
       <div className="pestanas-panel pestanas-secundarias" role="tablist" aria-label="Vista de la tienda">
@@ -268,97 +268,13 @@ function DetalleComercio({ comercio, token, onSesionVencida, onCambio, onVolver 
         <button type="button" role="tab" className="pestana-panel" aria-selected={vista === 'metricas'} onClick={() => setVista('metricas')}>
           Métricas
         </button>
-      </div>
-      {vista === 'ofertas' ? (
-        <OfertasComercio comercioId={comercio.id} token={token} onSesionVencida={onSesionVencida} onCambio={onCambio} />
-      ) : (
-        <MetricasComercio comercioId={comercio.id} token={token} onSesionVencida={onSesionVencida} />
-      )}
-    </div>
-  );
-}
-
-function UsuariosComercio({ comercio, token, onAccion }: { comercio: ComercioPanel; token: string; onAccion: (p: Promise<ComercioPanel>, m: string) => Promise<boolean> }) {
-  const [usuario, setUsuario] = useState('');
-  const [nombre, setNombre] = useState('');
-  const [contrasena, setContrasena] = useState('');
-  const [error, setError] = useState<string | null>(null);
-
-  async function crear(e: FormEvent) {
-    e.preventDefault();
-    if (!/^[A-Za-z0-9._-]{3,40}$/.test(usuario.trim())) return setError('Usuario de 3 a 40 letras, números, punto, guion o guion bajo.');
-    if (nombre.trim().length < 2) return setError('Escribe el nombre de la persona o caja.');
-    if (contrasena.length < 8) return setError('La contraseña debe tener al menos 8 caracteres.');
-    setError(null);
-    const ok = await onAccion(
-      panel.crearUsuario(comercio.id, { usuario: usuario.trim(), nombre: nombre.trim(), contrasena }, token),
-      `Usuario «${usuario.trim().toLowerCase()}» creado. Entrégale la contraseña por un medio seguro.`,
-    );
-    if (ok) {
-      setUsuario('');
-      setNombre('');
-      setContrasena('');
-    }
-  }
-
-  function cambiarContrasena(id: number, alias: string) {
-    const nueva = window.prompt(`Nueva contraseña para «${alias}» (mínimo 8 caracteres):`);
-    if (nueva === null) return;
-    if (nueva.length < 8) return setError('La contraseña debe tener al menos 8 caracteres.');
-    void onAccion(panel.cambiarUsuario(id, { contrasena: nueva }, token), `Contraseña de «${alias}» cambiada.`);
-  }
-
-  return (
-    <div className="usuarios-comercio">
-      <h3>Usuarios de la tienda</h3>
-      {comercio.usuarios.length === 0 ? (
-        <p className="grafico-nota">Sin usuarios: crea uno para que la tienda entre a su panel.</p>
-      ) : (
-        <ul className="lista-usuarios">
-          {comercio.usuarios.map((u) => (
-            <li key={u.id} className={u.activo ? '' : 'usuario-inactivo'}>
-              <span>
-                <b>{u.usuario}</b> · {u.nombre}
-                {!u.activo && <span className="chip chip-apagado">Desactivado</span>}
-              </span>
-              <span>
-                <button type="button" className="boton-texto" onClick={() => cambiarContrasena(u.id, u.usuario)}>
-                  Cambiar contraseña
-                </button>
-                <button
-                  type="button"
-                  className="boton-texto"
-                  onClick={() => void onAccion(panel.cambiarUsuario(u.id, { activo: !u.activo }, token), u.activo ? 'Usuario desactivado.' : 'Usuario activado.')}
-                >
-                  {u.activo ? 'Desactivar' : 'Activar'}
-                </button>
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      <form className="campos-usuario" onSubmit={crear} noValidate>
-        <input className="login-campo" placeholder="usuario" aria-label="Usuario" autoCapitalize="none" value={usuario} onChange={(e) => setUsuario(e.target.value)} />
-        <input className="login-campo" placeholder="Nombre (p. ej. Caja 1)" aria-label="Nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
-        <input
-          className="login-campo"
-          type="password"
-          placeholder="Contraseña (8+)"
-          aria-label="Contraseña"
-          autoComplete="new-password"
-          value={contrasena}
-          onChange={(e) => setContrasena(e.target.value)}
-        />
-        <button type="submit" className="boton boton-primario">
-          Crear usuario
+        <button type="button" role="tab" className="pestana-panel" aria-selected={vista === 'usuarios'} onClick={() => setVista('usuarios')}>
+          Usuarios ({comercio.usuarios.length})
         </button>
-      </form>
-      {error && (
-        <p className="aviso-linea aviso-error" role="alert">
-          <IconoAlerta width={18} height={18} />
-          {error}
-        </p>
-      )}
+      </div>
+      {vista === 'ofertas' && <OfertasComercio comercioId={comercio.id} token={token} onSesionVencida={onSesionVencida} onCambio={onCambio} />}
+      {vista === 'metricas' && <MetricasComercio comercioId={comercio.id} token={token} onSesionVencida={onSesionVencida} />}
+      {vista === 'usuarios' && <GestionUsuarios esAdmin comercioId={comercio.id} token={token} onSesionVencida={onSesionVencida} />}
     </div>
   );
 }

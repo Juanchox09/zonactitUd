@@ -1,4 +1,10 @@
-/** Tiendas afiliadas. Contrato: GET {VITE_API_URL}/comercios */
+/**
+ * Tiendas afiliadas.
+ *   GET {VITE_API_URL}/comercios                       lista para el admin (elige en qué tienda valida)
+ *   GET {VITE_API_URL}/validacion/tienda[?comercio_id] tienda de la sesión, ofertas de hoy y la que se aplicará
+ */
+import type { OfertaPanel } from './panel';
+import { ErrorSesion } from './sesion';
 
 export interface Oferta {
   id: number;
@@ -26,9 +32,35 @@ export async function listarComercios(senal?: AbortSignal): Promise<Comercio[]> 
   return comercios.filter((c) => c.descuentos.length > 0);
 }
 
+export interface TiendaValidacion {
+  id: number;
+  nombre: string;
+  categoria: string;
+  activo: boolean;
+  /** Ofertas vigentes hoy; la principal va primero. */
+  ofertas: OfertaPanel[];
+  /** La oferta que el servidor aplicará automáticamente al validar a un estudiante activo. */
+  aplicada: number | null;
+}
+
+export async function tiendaDeValidacion(token: string, comercioId?: number, senal?: AbortSignal): Promise<TiendaValidacion> {
+  const consulta = comercioId ? `?comercio_id=${comercioId}` : '';
+  const respuesta = await fetch(`${apiUrl}/validacion/tienda${consulta}`, {
+    headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+    signal: senal,
+  });
+  if (respuesta.status === 401) throw new ErrorSesion('Tu sesión venció. Vuelve a iniciar sesión.');
+  const cuerpo = (await respuesta.json().catch(() => null)) as unknown;
+  if (!respuesta.ok) {
+    const mensaje = (cuerpo as { error?: unknown } | null)?.error;
+    throw new Error(typeof mensaje === 'string' ? mensaje : `El servidor respondió con un error (${respuesta.status}).`);
+  }
+  return cuerpo as TiendaValidacion;
+}
+
 export const textoOferta = (o: Oferta) => (o.tipo === '2x1' ? '2x1' : `${o.porcentaje} %`);
 
-/* La tienda elegida se recuerda en este equipo (hasta que exista el login de cajero). */
+/* Solo para el admin, que no tiene tienda propia: la tienda elegida se recuerda en este equipo. */
 const CLAVE_TIENDA = 'actitud.tienda';
 
 export function tiendaGuardada(): number | null {

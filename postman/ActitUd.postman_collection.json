@@ -56,12 +56,89 @@
     {
       "key": "tienda_usuario",
       "value": "tienda.postman"
+    },
+    {
+      "key": "cajero_usuario",
+      "value": ""
+    },
+    {
+      "key": "cajero_id",
+      "value": ""
+    },
+    {
+      "key": "cajero_token",
+      "value": ""
     }
   ],
   "item": [
     {
       "name": "API ActitUd",
       "item": [
+        {
+          "name": "Preparación · login admin",
+          "request": {
+            "method": "POST",
+            "url": "{{api}}/auth/login",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"usuario\": \"admin\", \"contrasena\": \"actitud2026\" }"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"200\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"admin_token\", pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Preparación · tienda con oferta vigente hoy",
+          "request": {
+            "method": "GET",
+            "url": "{{api}}/comercios",
+            "header": []
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"hay al menos una tienda con oferta hoy\", () => pm.expect(pm.response.json().length).to.be.above(0));",
+                  "pm.collectionVariables.set(\"comercio_id\", pm.response.json()[0].id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Validar sin sesión (401)",
+          "request": {
+            "method": "GET",
+            "url": "{{api}}/carnets/validar?cedula=8-123-456",
+            "header": []
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"401: validar exige iniciar sesión\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
         {
           "name": "Salud",
           "request": {
@@ -86,22 +163,13 @@
           "name": "Cédula · estudiante activo",
           "request": {
             "method": "GET",
-            "url": {
-              "raw": "{{api}}/carnets/validar?cedula=8-123-456",
-              "host": [
-                "{{api}}"
-              ],
-              "path": [
-                "carnets",
-                "validar"
-              ],
-              "query": [
-                {
-                  "key": "cedula",
-                  "value": "8-123-456"
-                }
-              ]
-            }
+            "url": "{{api}}/carnets/validar?cedula=8-123-456&comercio_id={{comercio_id}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -122,22 +190,13 @@
           "name": "Cédula con ceros a la izquierda",
           "request": {
             "method": "GET",
-            "url": {
-              "raw": "{{api}}/carnets/validar?cedula=08-0123-00456",
-              "host": [
-                "{{api}}"
-              ],
-              "path": [
-                "carnets",
-                "validar"
-              ],
-              "query": [
-                {
-                  "key": "cedula",
-                  "value": "08-0123-00456"
-                }
-              ]
-            }
+            "url": "{{api}}/carnets/validar?cedula=08-0123-00456&comercio_id={{comercio_id}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -154,22 +213,13 @@
           "name": "Cédula · estudiante inactivo",
           "request": {
             "method": "GET",
-            "url": {
-              "raw": "{{api}}/carnets/validar?cedula=8-234-567",
-              "host": [
-                "{{api}}"
-              ],
-              "path": [
-                "carnets",
-                "validar"
-              ],
-              "query": [
-                {
-                  "key": "cedula",
-                  "value": "8-234-567"
-                }
-              ]
-            }
+            "url": "{{api}}/carnets/validar?cedula=8-234-567&comercio_id={{comercio_id}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -189,22 +239,13 @@
           "name": "QR del carné · extranjero activo",
           "request": {
             "method": "GET",
-            "url": {
-              "raw": "{{api}}/carnets/validar?qr=RS04LTEyMzQ1QHV0cC5hYy5wYQ%3D%3D",
-              "host": [
-                "{{api}}"
-              ],
-              "path": [
-                "carnets",
-                "validar"
-              ],
-              "query": [
-                {
-                  "key": "qr",
-                  "value": "RS04LTEyMzQ1QHV0cC5hYy5wYQ%3D%3D"
-                }
-              ]
-            }
+            "url": "{{api}}/carnets/validar?qr=RS04LTEyMzQ1QHV0cC5hYy5wYQ%3D%3D&comercio_id={{comercio_id}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -229,32 +270,34 @@
                   "key": "imagen",
                   "type": "file",
                   "src": ""
+                },
+                {
+                  "key": "comercio_id",
+                  "value": "{{comercio_id}}",
+                  "type": "text"
                 }
               ]
             },
-            "description": "Elegir en 'imagen' un PNG de frontend/demo-qr/ (utp-*.png)."
+            "description": "Elegir en 'imagen' un PNG de frontend/demo-qr/ (utp-*.png).",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ]
           }
         },
         {
           "name": "No encontrado (404)",
           "request": {
             "method": "GET",
-            "url": {
-              "raw": "{{api}}/carnets/validar?cedula=8-999-999",
-              "host": [
-                "{{api}}"
-              ],
-              "path": [
-                "carnets",
-                "validar"
-              ],
-              "query": [
-                {
-                  "key": "cedula",
-                  "value": "8-999-999"
-                }
-              ]
-            }
+            "url": "{{api}}/carnets/validar?cedula=8-999-999&comercio_id={{comercio_id}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -271,22 +314,13 @@
           "name": "Sistema de matrícula caído (503)",
           "request": {
             "method": "GET",
-            "url": {
-              "raw": "{{api}}/carnets/validar?cedula=8-500-500",
-              "host": [
-                "{{api}}"
-              ],
-              "path": [
-                "carnets",
-                "validar"
-              ],
-              "query": [
-                {
-                  "key": "cedula",
-                  "value": "8-500-500"
-                }
-              ]
-            }
+            "url": "{{api}}/carnets/validar?cedula=8-500-500&comercio_id={{comercio_id}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -306,22 +340,13 @@
           "name": "Timeout de 5 s (503)",
           "request": {
             "method": "GET",
-            "url": {
-              "raw": "{{api}}/carnets/validar?cedula=8-600-600",
-              "host": [
-                "{{api}}"
-              ],
-              "path": [
-                "carnets",
-                "validar"
-              ],
-              "query": [
-                {
-                  "key": "cedula",
-                  "value": "8-600-600"
-                }
-              ]
-            }
+            "url": "{{api}}/carnets/validar?cedula=8-600-600&comercio_id={{comercio_id}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -341,22 +366,13 @@
           "name": "Cédula con formato inválido (400)",
           "request": {
             "method": "GET",
-            "url": {
-              "raw": "{{api}}/carnets/validar?cedula=abc",
-              "host": [
-                "{{api}}"
-              ],
-              "path": [
-                "carnets",
-                "validar"
-              ],
-              "query": [
-                {
-                  "key": "cedula",
-                  "value": "abc"
-                }
-              ]
-            }
+            "url": "{{api}}/carnets/validar?cedula=abc&comercio_id={{comercio_id}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -373,22 +389,13 @@
           "name": "QR inválido (400)",
           "request": {
             "method": "GET",
-            "url": {
-              "raw": "{{api}}/carnets/validar?qr=zzz",
-              "host": [
-                "{{api}}"
-              ],
-              "path": [
-                "carnets",
-                "validar"
-              ],
-              "query": [
-                {
-                  "key": "qr",
-                  "value": "zzz"
-                }
-              ]
-            }
+            "url": "{{api}}/carnets/validar?qr=zzz&comercio_id={{comercio_id}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -401,7 +408,8 @@
             }
           ]
         }
-      ]
+      ],
+      "description": "\nValidar exige sesión: cada validación registra la tienda y el descuento aplicado. Aquí se valida como admin indicando la tienda (comercio_id); el personal de tienda no la indica, se toma de su sesión."
     },
     {
       "name": "Mock API UTP (directo)",
@@ -562,7 +570,13 @@
                   "value": "{{comercio_id}}"
                 }
               ]
-            }
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -604,7 +618,13 @@
                   "value": "{{comercio_id}}"
                 }
               ]
-            }
+            },
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -630,6 +650,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
               }
             ],
             "body": {
@@ -658,6 +682,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
               }
             ],
             "body": {
@@ -1026,11 +1054,39 @@
           ]
         },
         {
+          "name": "Comercio · ofertas de hoy y la que se aplicará",
+          "request": {
+            "method": "GET",
+            "url": "{{api}}/validacion/tienda",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{comercio_token}}"
+              }
+            ]
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"200 con la oferta aplicada\", () => { pm.response.to.have.status(200); pm.expect(pm.response.json().aplicada).to.not.be.null; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Validar en la tienda del comercio",
           "request": {
             "method": "GET",
-            "url": "{{api}}/carnets/validar?cedula=8-123-456&comercio_id={{tienda_id}}",
-            "header": []
+            "url": "{{api}}/carnets/validar?cedula=8-123-456",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{comercio_token}}"
+              }
+            ]
           },
           "event": [
             {
@@ -1086,6 +1142,228 @@
                   "pm.test(\"200 con tasa y tiempos\", () => { pm.response.to.have.status(200); const r = pm.response.json(); pm.expect(r.resumen).to.have.property(\"tasaExito\"); pm.expect(r.tiempos).to.have.property(\"mediana\"); });"
                 ]
               }
+            }
+          ]
+        },
+        {
+          "name": "Usuarios y permisos de tienda (OE5)",
+          "description": "Ejecutar después de la carpeta del panel hasta «Comercio · métricas». El administrador de la tienda crea un cajero; el cajero solo valida.",
+          "item": [
+            {
+              "name": "Sesión del administrador de tienda (permiso)",
+              "request": {
+                "method": "GET",
+                "url": "{{api}}/auth/sesion",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{comercio_token}}"
+                  }
+                ]
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"permiso administrador\", () => pm.expect(pm.response.json().permiso).to.eql(\"administrador\"));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Administrador de tienda · crear cajero",
+              "request": {
+                "method": "POST",
+                "url": "{{api}}/panel/comercios/{{tienda_id}}/usuarios",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{comercio_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"usuario\": \"caja{{$timestamp}}\",\n  \"nombre\": \"Caja 1\",\n  \"contrasena\": \"clave-cajero-1\",\n  \"permiso\": \"cajero\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"201 con el cajero\", () => pm.response.to.have.status(201));",
+                      "const u = pm.response.json().find((x) => x.permiso === \"cajero\");",
+                      "pm.collectionVariables.set(\"cajero_usuario\", u.usuario);",
+                      "pm.collectionVariables.set(\"cajero_id\", u.id);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Administrador de tienda · no puede crear administradores (403)",
+              "request": {
+                "method": "POST",
+                "url": "{{api}}/panel/comercios/{{tienda_id}}/usuarios",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{comercio_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"usuario\": \"jefe{{$timestamp}}\",\n  \"nombre\": \"Otro jefe\",\n  \"contrasena\": \"clave-jefe-1\",\n  \"permiso\": \"administrador\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"403\", () => pm.response.to.have.status(403));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Login cajero",
+              "request": {
+                "method": "POST",
+                "url": "{{api}}/auth/login",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{ \"usuario\": \"{{cajero_usuario}}\", \"contrasena\": \"clave-cajero-1\" }"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"200 permiso cajero\", () => { pm.response.to.have.status(200); pm.expect(pm.response.json().usuario.permiso).to.eql(\"cajero\"); });",
+                      "pm.collectionVariables.set(\"cajero_token\", pm.response.json().token);"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Cajero · no entra al panel de la tienda (403)",
+              "request": {
+                "method": "GET",
+                "url": "{{api}}/panel/comercios/{{tienda_id}}/metricas",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{cajero_token}}"
+                  }
+                ]
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"403\", () => pm.response.to.have.status(403));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Admin · listar todos los usuarios",
+              "request": {
+                "method": "GET",
+                "url": "{{api}}/admin/usuarios",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{admin_token}}"
+                  }
+                ]
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"200 sin contraseñas\", () => { pm.response.to.have.status(200); const l = pm.response.json(); pm.expect(l).to.be.an(\"array\"); l.forEach((u) => pm.expect(u).to.not.have.property(\"contrasena\")); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Admin · ascender cajero a administrador",
+              "request": {
+                "method": "PATCH",
+                "url": "{{api}}/admin/usuarios/{{cajero_id}}",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{admin_token}}"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"permiso\": \"administrador\"\n}"
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"200\", () => pm.response.to.have.status(200));"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "Admin · eliminar el usuario de prueba",
+              "request": {
+                "method": "DELETE",
+                "url": "{{api}}/admin/usuarios/{{cajero_id}}",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{admin_token}}"
+                  }
+                ]
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "exec": [
+                      "pm.test(\"204\", () => pm.response.to.have.status(204));"
+                    ]
+                  }
+                }
+              ]
             }
           ]
         },

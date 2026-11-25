@@ -95,6 +95,11 @@ def preparar_comercio(api) -> tuple[int, int]:
         return comercio.id, comercio.descuentos[0].id
 
 
+def caja(api, comercio: int) -> dict:
+    from .conftest import caja_de
+    return caja_de(api, comercio)
+
+
 def test_comercios(api):
     preparar_comercio(api)
     datos = api.get("/api/comercios").json()
@@ -104,7 +109,7 @@ def test_comercios(api):
 def test_canje_de_estudiante_activo(api):
     comercio, descuento = preparar_comercio(api)
     r = api.post("/api/canjes", json={"comercio_id": comercio, "descuento_id": descuento, "cedula": "8-123-456",
-                                      "monto_compra": "12.50"})
+                                      "monto_compra": "12.50"}, headers=caja(api, comercio))
     assert r.status_code == 201, r.text
     assert r.json()["montoDescuento"] == 1.88
     with api.app.state.sesiones() as sesion:
@@ -116,15 +121,16 @@ def test_canje_de_estudiante_activo(api):
 def test_canje_por_qr(api):
     comercio, descuento = preparar_comercio(api)
     r = api.post("/api/canjes", json={"comercio_id": comercio, "descuento_id": descuento,
-                                      "qr": "OC0xMjMtNDU2QHV0cC5hYy5wYQ=="})
+                                      "qr": "OC0xMjMtNDU2QHV0cC5hYy5wYQ=="}, headers=caja(api, comercio))
     assert r.status_code == 201
 
 
 def test_canje_rechazado_si_esta_inactivo_o_no_existe(api):
     comercio, descuento = preparar_comercio(api)
-    r = api.post("/api/canjes", json={"comercio_id": comercio, "descuento_id": descuento, "cedula": "8-234-567"})
+    h = caja(api, comercio)
+    r = api.post("/api/canjes", json={"comercio_id": comercio, "descuento_id": descuento, "cedula": "8-234-567"}, headers=h)
     assert r.status_code == 409
-    r = api.post("/api/canjes", json={"comercio_id": comercio, "descuento_id": descuento, "cedula": "8-999-999"})
+    r = api.post("/api/canjes", json={"comercio_id": comercio, "descuento_id": descuento, "cedula": "8-999-999"}, headers=h)
     assert r.status_code == 404
     with api.app.state.sesiones() as sesion:
         assert sesion.scalars(select(Canje)).all() == []
@@ -132,14 +138,20 @@ def test_canje_rechazado_si_esta_inactivo_o_no_existe(api):
 
 def test_canje_con_descuento_de_otro_comercio(api):
     comercio, descuento = preparar_comercio(api)
-    r = api.post("/api/canjes", json={"comercio_id": comercio + 99, "descuento_id": descuento, "cedula": "8-123-456"})
+    h = caja(api, comercio)
+    # El personal de tienda no registra canjes a nombre de otra tienda.
+    r = api.post("/api/canjes", json={"comercio_id": comercio + 99, "descuento_id": descuento, "cedula": "8-123-456"}, headers=h)
+    assert r.status_code == 403
+    admin = {"Authorization": "Bearer " + api.post("/api/auth/login", json={"usuario": "admin", "contrasena": "actitud2026"}).json()["token"]}
+    r = api.post("/api/canjes", json={"comercio_id": comercio + 99, "descuento_id": descuento, "cedula": "8-123-456"}, headers=admin)
     assert r.status_code == 400
 
 
 def test_reportes_endpoint(api):
     comercio, descuento = preparar_comercio(api)
-    api.get("/api/carnets/validar", params={"cedula": "8-123-456"})
-    api.post("/api/canjes", json={"comercio_id": comercio, "descuento_id": descuento, "cedula": "8-123-456"})
+    h = caja(api, comercio)
+    api.get("/api/carnets/validar", params={"cedula": "8-123-456"}, headers=h)
+    api.post("/api/canjes", json={"comercio_id": comercio, "descuento_id": descuento, "cedula": "8-123-456"}, headers=h)
     assert api.get("/api/reportes", params={"dias": 7}).status_code == 401  # sin sesión
     token = api.post("/api/auth/login", json={"usuario": "admin", "contrasena": "actitud2026"}).json()["token"]
     encabezados = {"Authorization": f"Bearer {token}"}

@@ -2,6 +2,7 @@
 import base64
 import io
 
+import pytest
 import qrcode
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -10,9 +11,17 @@ from app.config import Configuracion
 from app.db import Validacion
 from app.main import crear_app
 
-from .conftest import crear_cliente_utp
+from .conftest import caja_de, crear_cliente_utp, tienda_de_pruebas
 
 QR_ANA = "OC0xMjMtNDU2QHV0cC5hYy5wYQ=="
+
+
+@pytest.fixture(autouse=True)
+def sesion_de_caja(api) -> dict:
+    """Validar exige sesión: estas pruebas validan como cajero de una tienda con una oferta vigente."""
+    encabezados = caja_de(api, tienda_de_pruebas(api))
+    api.headers.update(encabezados)
+    return encabezados
 
 
 def bitacora(api: TestClient) -> list[tuple[str, str]]:
@@ -23,7 +32,9 @@ def bitacora(api: TestClient) -> list[tuple[str, str]]:
 def test_estudiante_activo_por_cedula(api):
     r = api.get("/api/carnets/validar", params={"cedula": "08-0123-00456"})
     assert r.status_code == 200
-    assert r.json() == {
+    cuerpo = r.json()
+    assert cuerpo.pop("descuento")["comercio"] == "Tienda de pruebas"
+    assert cuerpo == {
         "nombre": "ANA MARÍA PÉREZ GÓMEZ",
         "cedula": "8-123-456",
         "tipo": "Estudiante",
@@ -115,10 +126,11 @@ def test_ruta_inexistente(api):
     assert r.status_code == 404 and r.json() == {"error": "Ruta no encontrada."}
 
 
-def test_limite_por_ip(url_mock, sesiones):
+def test_limite_por_ip(url_mock, sesiones, sesion_de_caja):
     cliente = crear_cliente_utp(url_mock)
     with TestClient(crear_app(Configuracion(rate_limit_max=2, _env_file=None), cliente=cliente,
                               sesiones=sesiones)) as http:
+        http.headers.update(sesion_de_caja)
         for _ in range(2):
             assert http.get("/api/carnets/validar", params={"cedula": "8-123-456"}).status_code == 200
         r = http.get("/api/carnets/validar", params={"cedula": "8-123-456"})

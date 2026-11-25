@@ -1,4 +1,5 @@
-import { IconoSilencio, IconoVolumen } from './Iconos';
+import { textoRol, type Sesion } from '../services/sesion';
+import { IconoSalir, IconoSilencio, IconoVolumen } from './Iconos';
 
 export type Conexion = 'demo' | 'en-linea' | 'sin-conexion' | 'comprobando';
 
@@ -16,9 +17,19 @@ interface Props {
   conexion: Conexion;
   sonido: boolean;
   onCambiarSonido: () => void;
+  sesion: Sesion | null;
+  onSalir: () => void;
 }
 
-export function Cabecera({ vista, conexion, sonido, onCambiarSonido }: Props) {
+const iniciales = (nombre: string) =>
+  nombre
+    .split(/s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]!.toUpperCase())
+    .join('');
+
+export function Cabecera({ vista, conexion, sonido, onCambiarSonido, sesion, onSalir }: Props) {
   return (
     <header className="cabecera">
       <div className="cabecera-interior">
@@ -48,6 +59,26 @@ export function Cabecera({ vista, conexion, sonido, onCambiarSonido }: Props) {
         </nav>
 
         <div className="cabecera-acciones">
+          {sesion && (
+            <span className="sesion-cabecera" title={`${sesion.usuario.nombre} (${sesion.usuario.usuario}) · ${textoRol(sesion.usuario)}${sesion.usuario.comercio ? ` · ${sesion.usuario.comercio}` : ''}`}>
+              <span className="sesion-avatar" aria-hidden="true">
+                {iniciales(sesion.usuario.nombre)}
+              </span>
+              <span className="sesion-datos">
+                <span className="sesion-quien">{sesion.usuario.nombre}</span>
+                <span className="sesion-que">
+                  {textoRol(sesion.usuario)}
+                  {sesion.usuario.comercio ? ` · ${sesion.usuario.comercio}` : ''}
+                </span>
+              </span>
+              <span className="visualmente-oculto">
+                Sesión de {sesion.usuario.nombre}, {textoRol(sesion.usuario)}
+              </span>
+              <button type="button" className="sesion-salir" onClick={onSalir} aria-label="Cerrar sesión" title="Cerrar sesión">
+                <IconoSalir width={18} height={18} />
+              </button>
+            </span>
+          )}
           <span className={`estado-conexion ${conexion}`}>
             <span className="estado-punto" aria-hidden="true" />
             <span className="estado-texto">{TEXTO_CONEXION[conexion]}</span>

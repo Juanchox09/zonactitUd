@@ -27,7 +27,8 @@ Si una idea no encaja en ningún objetivo, se anota como "mejora futura" (Capít
 ## 2. Reglas del negocio (anexo: arte oficial ActitUd y correo de Altaplaza)
 
 - El beneficio es **solo para estudiantes activos**: matriculados en el periodo vigente, según la UTP. Si la UTP no responde, el resultado es "no se pudo verificar", **nunca "inactivo"**, y no hay descuento.
-- **Cada comercio tiene su descuento.** Al validar se aplica la oferta *principal* vigente ese día.
+- **Validar exige sesión** del personal de la tienda: cada validación registra la tienda (tomada de la sesión, nunca elegida en el navegador) y el descuento aplicado.
+- **Cada comercio tiene su descuento.** Al validar se aplica automáticamente la oferta *principal* vigente ese día (si no aplica, la primera vigente). El cajero no elige el descuento.
 - Respetar **días** ("de lunes a viernes"; SK Karts de lunes a jueves; Crazy Park de lunes a miércoles), **vigencia** (hasta el 31/12/2026) y **condiciones** (precio regular, no acumulable, no transferible, no a domicilio ni agregadores, no en reservas de cumpleaños).
 - Categorías oficiales: **Shopping, Restaurantes, Entretenimiento**. Comercios reales: `api/scripts/sembrar_reporteria.py` (`COMERCIOS_ACTITUD`).
 - Población: estudiantes activos del Campus Central de la UTP (≈ 4,300, primer semestre de 2026). Población secundaria: los comercios afiliados.

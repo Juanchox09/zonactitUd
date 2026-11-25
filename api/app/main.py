@@ -85,7 +85,7 @@ class Error(BaseModel):
 
 
 class SolicitudCanje(BaseModel):
-    comercio_id: int
+    comercio_id: int | None = None  # el personal de tienda usa la de su sesión
     descuento_id: int
     cedula: str | None = Field(None, max_length=30)
     qr: str | None = Field(None, max_length=512)
@@ -97,13 +97,17 @@ class SolicitudLogin(BaseModel):
     contrasena: str = Field(..., min_length=1, max_length=200)
 
 
+Permiso = Literal["cajero", "administrador"]
+
+
 class UsuarioSesion(BaseModel):
     usuario: str
     nombre: str
     rol: Literal["admin", "comercio"]
-    # Solo para el rol comercio: la tienda que administra.
+    # Solo para el rol comercio: su tienda y su permiso (cajero = solo validar; administrador = gestiona la tienda).
     comercioId: int | None = None
     comercio: str | None = None
+    permiso: Permiso | None = None
 
 
 class DatosDescuento(BaseModel):
@@ -145,11 +149,14 @@ class DatosUsuarioComercio(BaseModel):
     usuario: str = Field(..., pattern=r"^[A-Za-z0-9._-]{3,40}$")
     nombre: str = Field(..., min_length=2, max_length=80)
     contrasena: str = Field(..., min_length=8, max_length=200)
+    permiso: Permiso = "administrador"
 
 
 class CambioUsuario(BaseModel):
     activo: bool | None = None
     contrasena: str | None = Field(None, min_length=8, max_length=200)
+    nombre: str | None = Field(None, min_length=2, max_length=80)
+    permiso: Permiso | None = None
 
 
 class Sesion(BaseModel):
@@ -275,14 +282,23 @@ def crear_app(config: Configuracion | None = None, *, cliente: ClienteUtp | None
             sesion.flush()
             return canje, False
 
+    def motivo_sin_descuento(comercio_id: int) -> str:
+        with app.state.sesiones() as sesion:
+            comercio = sesion.get(Comercio, comercio_id)
+        if not comercio:
+            return "La tienda no existe."
+        if not comercio.activo:
+            return "La tienda no está activa en el programa ActitUd."
+        return "La tienda no tiene ofertas vigentes hoy: no hay descuento que aplicar. Publica o activa una oferta en el panel."
+
     def consultar(criterio: Criterio, tipo: Literal["cedula", "qr"], valor: str,
-                  comercio_id: int | None = None, inicio: float | None = None) -> JSONResponse | Titular:
+                  comercio_id: int, inicio: float | None = None) -> JSONResponse | Titular:
+        """Valida en una tienda. Se exige la tienda: cada validación registra dónde se hizo y, si el estudiante
+        está activo, el descuento aplicado, elegido automáticamente entre las ofertas vigentes hoy."""
         inicio = inicio or time.perf_counter()
-        descuento = None
-        if comercio_id is not None:
-            descuento = descuento_principal(comercio_id)
-            if descuento is None:
-                return _error(400, "La tienda no existe, no está activa o no tiene descuentos vigentes hoy.")
+        descuento = descuento_principal(comercio_id)
+        if descuento is None:
+            return _error(400, motivo_sin_descuento(comercio_id))
         cliente: ClienteUtp = app.state.cliente
         try:
             estudiante = cliente.consultar_por_cedula(valor) if tipo == "cedula" else cliente.validar_carne(valor)
@@ -318,15 +334,30 @@ def crear_app(config: Configuracion | None = None, *, cliente: ClienteUtp | None
             raise HTTPException(401, "La sesión ya no es válida.", headers={"WWW-Authenticate": "Bearer"})
         return usuario
 
+    def tienda_que_valida(usuario: Usuario, comercio_id: int | None) -> int:
+        """Personal de tienda (cajero o administrador): siempre su propia tienda, tomada de la sesión.
+        Admin de ActitUd: no tiene tienda, debe indicar en cuál valida."""
+        if usuario.rol == "comercio":
+            if comercio_id is not None and comercio_id != usuario.comercio_id:
+                raise HTTPException(403, "Solo puedes validar en tu propia tienda.")
+            return usuario.comercio_id
+        if comercio_id is None:
+            raise HTTPException(400, "Elige la tienda en la que validas.")
+        return comercio_id
+
     def solo_admin(usuario: Usuario = Depends(usuario_actual)) -> Usuario:
         if usuario.rol != "admin":
             raise HTTPException(403, "Solo un administrador puede ver los reportes.")
         return usuario
 
     def autorizar_comercio(comercio_id: int, usuario: Usuario) -> None:
-        """El admin gestiona cualquier tienda; un usuario de comercio, solo la suya."""
-        if usuario.rol != "admin" and usuario.comercio_id != comercio_id:
+        """El admin gestiona cualquier tienda; el administrador de una tienda, solo la suya; el cajero, ninguna."""
+        if usuario.rol == "admin":
+            return
+        if usuario.comercio_id != comercio_id:
             raise HTTPException(403, "Solo puedes gestionar tu propia tienda.")
+        if usuario.permiso != "administrador":
+            raise HTTPException(403, "Tu usuario es de caja: solo puede validar carnets.")
 
     def usuario_sesion(usuario: Usuario) -> UsuarioSesion:
         nombre_comercio = None
@@ -335,7 +366,8 @@ def crear_app(config: Configuracion | None = None, *, cliente: ClienteUtp | None
                 comercio = sesion.get(Comercio, usuario.comercio_id)
                 nombre_comercio = comercio.nombre if comercio else None
         return UsuarioSesion(usuario=usuario.usuario, nombre=usuario.nombre, rol=usuario.rol,
-                             comercioId=usuario.comercio_id, comercio=nombre_comercio)
+                             comercioId=usuario.comercio_id, comercio=nombre_comercio,
+                             permiso=usuario.permiso if usuario.rol == "comercio" else None)
 
     def limite_excedido(request: Request) -> JSONResponse | None:
         espera = limite.segundos_de_espera(request.client.host if request.client else "desconocida")
@@ -357,38 +389,42 @@ def crear_app(config: Configuracion | None = None, *, cliente: ClienteUtp | None
 
     @app.get("/api/carnets/validar", response_model=Titular, response_model_exclude_none=True,
              responses=respuestas, tags=["validación"],
-             summary="Valida un carnet por cédula o por el contenido del QR del carné UTP")
+             summary="Valida un carnet en la tienda de la sesión (requiere iniciar sesión)")
     def validar(
         request: Request,
+        usuario: Usuario = Depends(usuario_actual),
         cedula: str | None = Query(None, max_length=30, examples=["8-123-456"]),
         qr: str | None = Query(None, max_length=512, description="Contenido del QR sin modificar (Base64)",
                                examples=["OC0xMjMtNDU2QHV0cC5hYy5wYQ=="]),
         carnet: str | None = Query(None, max_length=40, include_in_schema=False),
-        comercio_id: int | None = Query(None, ge=1, description="Tienda que valida. Si el estudiante está "
-                                        "activo, se registra el descuento de esa tienda y se devuelve en `descuento`"),
+        comercio_id: int | None = Query(None, ge=1, description="Solo para el admin: tienda en la que valida. "
+                                        "El personal de tienda valida siempre en la suya (se toma de la sesión)"),
     ):
         if carnet is not None:
             return _error(400, "La UTP no permite consultar por código de carnet. Usa la cédula o el QR del carné.")
         if (cedula is None) == (qr is None):
             return _error(400, "Indica exactamente uno de los parámetros: cedula o qr.")
+        tienda = tienda_que_valida(usuario, comercio_id)
         if bloqueo := limite_excedido(request):
             return bloqueo
         if cedula is not None:
             valor = cedula_valida(cedula)
             if not valor:
                 return _error(400, "Formato de cédula no válido.")
-            return consultar("cedula", "cedula", valor, comercio_id)
+            return consultar("cedula", "cedula", valor, tienda)
         valor = qr.strip()
         if not valor:
             return _error(400, "El código QR está vacío.")
-        return consultar("qr", "qr", valor, comercio_id)
+        return consultar("qr", "qr", valor, tienda)
 
     @app.post("/api/carnets/validar-imagen", response_model=Titular, response_model_exclude_none=True,
               responses=respuestas, tags=["validación"],
-              summary="Valida un carnet a partir de una foto de su código QR (OpenCV)")
+              summary="Valida un carnet a partir de una foto de su código QR (OpenCV); requiere iniciar sesión")
     async def validar_imagen(request: Request, imagen: UploadFile = File(...),
-                             comercio_id: int | None = Form(None, ge=1)):
+                             comercio_id: int | None = Form(None, ge=1),
+                             usuario: Usuario = Depends(usuario_actual)):
         inicio = time.perf_counter()  # el tiempo incluye leer el QR de la foto
+        comercio_id = tienda_que_valida(usuario, comercio_id)
         if bloqueo := limite_excedido(request):
             return bloqueo
         contenido = await imagen.read(TAMANO_MAXIMO + 1)
@@ -406,9 +442,23 @@ def crear_app(config: Configuracion | None = None, *, cliente: ClienteUtp | None
             return await run_in_threadpool(consultar, "imagen", "cedula", cedula, comercio_id, inicio)
         return _error(400, MENSAJE_QR_INVALIDO)
 
+    @app.get("/api/validacion/tienda", tags=["validación"], responses={401: {"model": Error}, 403: {"model": Error}},
+             summary="Tienda de la sesión, sus ofertas disponibles hoy y la que se aplicará al validar")
+    def tienda_de_validacion(comercio_id: int | None = Query(None, ge=1, description="Solo para el admin"),
+                             usuario: Usuario = Depends(usuario_actual)):
+        tienda = tienda_que_valida(usuario, comercio_id)
+        hoy = ahora_panama().date()
+        with app.state.sesiones() as sesion:
+            comercio = comercio_o_404(sesion, tienda)
+            vigentes = sorted((d for d in comercio.descuentos if d.aplica_el(hoy)) if comercio.activo else [],
+                              key=lambda d: (not d.principal, d.id))
+            return {"id": comercio.id, "nombre": comercio.nombre, "categoria": comercio.categoria,
+                    "activo": comercio.activo, "ofertas": [descuento_json(d, hoy) for d in vigentes],
+                    "aplicada": vigentes[0].id if vigentes else None}
+
     # ------------------------------------------------------------------------------------------------
-    # Reportería (propuesta, rama dev_juan). Al validar con comercio_id, el canje se registra solo.
-    # /reportes exige sesión de administrador. Pendiente: login de cajero para tomar la tienda de la sesión.
+    # Reportería. Al validar, el canje se registra solo con la tienda de la sesión.
+    # /reportes exige sesión de administrador.
 
     @app.get("/api/comercios", tags=["reportería"], summary="Comercios afiliados y sus descuentos activos")
     def comercios():
@@ -427,9 +477,10 @@ def crear_app(config: Configuracion | None = None, *, cliente: ClienteUtp | None
 
     @app.post("/api/canjes", status_code=201, responses={**respuestas, 409: {"model": Error}}, tags=["reportería"],
               summary="Registra un descuento aplicado (solo si el estudiante está activo)")
-    def registrar_canje(request: Request, solicitud: SolicitudCanje):
+    def registrar_canje(request: Request, solicitud: SolicitudCanje, usuario: Usuario = Depends(usuario_actual)):
         if (solicitud.cedula is None) == (solicitud.qr is None):
             return _error(400, "Indica exactamente uno de los campos: cedula o qr.")
+        solicitud.comercio_id = tienda_que_valida(usuario, solicitud.comercio_id)
         if bloqueo := limite_excedido(request):
             return bloqueo
         with app.state.sesiones() as sesion:
@@ -478,6 +529,8 @@ def crear_app(config: Configuracion | None = None, *, cliente: ClienteUtp | None
             log.warning("Inicio de sesión rechazado.")
             return _error(401, "Usuario o contraseña incorrectos.")
         token, vence = crear_token(usuario.id, usuario.rol, config.clave_sesion, config.sesion_horas * 3600)
+        with app.state.sesiones.begin() as sesion:
+            sesion.get(Usuario, usuario.id).ultimo_acceso = ahora_panama().replace(tzinfo=None)
         log.info("Inicio de sesión de «%s».", usuario.usuario)
         return Sesion(token=token, expiraEn=vence, usuario=usuario_sesion(usuario))
 
@@ -546,7 +599,13 @@ def crear_app(config: Configuracion | None = None, *, cliente: ClienteUtp | None
         return {"id": comercio.id, "nombre": comercio.nombre, "categoria": comercio.categoria, "activo": comercio.activo,
                 "descuentos": [descuento_json(d, hoy) for d in comercio.descuentos],
                 "descuentoHoy": aplicado.id if aplicado else None,
-                "usuarios": [{"id": u.id, "usuario": u.usuario, "nombre": u.nombre, "activo": u.activo} for u in usuarios]}
+                "usuarios": [usuario_json(u, comercio.nombre) for u in usuarios]}
+
+    def usuario_json(u: Usuario, comercio: str | None = None) -> dict:
+        return {"id": u.id, "usuario": u.usuario, "nombre": u.nombre, "rol": u.rol, "permiso": u.permiso,
+                "activo": u.activo, "comercioId": u.comercio_id, "comercio": comercio,
+                "ultimoAcceso": u.ultimo_acceso.isoformat(timespec="minutes") if u.ultimo_acceso else None,
+                "creadoEn": u.creado_en.isoformat(timespec="minutes") if u.creado_en else None}
 
     def comercio_o_404(sesion: Session, comercio_id: int) -> Comercio:
         comercio = sesion.get(Comercio, comercio_id)
@@ -689,33 +748,134 @@ def crear_app(config: Configuracion | None = None, *, cliente: ClienteUtp | None
             sesion.flush()
             return detalle_comercio(sesion, comercio)
 
+    # ------------------------------------------------------------------------------------------------
+    # Gestión de usuarios. El admin gestiona a todos los usuarios de tienda; el administrador de una tienda,
+    # solo a los cajeros de la suya (no puede crear administradores ni tocarse a sí mismo).
+
+    def puede_gestionar(actor: Usuario, objetivo: Usuario) -> None:
+        if objetivo.rol != "comercio":
+            raise HTTPException(404, "El usuario de comercio no existe.")
+        if actor.rol == "admin":
+            return
+        if objetivo.comercio_id != actor.comercio_id:
+            raise HTTPException(404, "El usuario de comercio no existe.")
+        if objetivo.id == actor.id or objetivo.permiso != "cajero":
+            raise HTTPException(403, "Solo la administración de ActitUd puede cambiar a un administrador de tienda.")
+
+    def crear_usuario(sesion: Session, comercio: Comercio, datos: DatosUsuarioComercio, actor: Usuario) -> Usuario:
+        if actor.rol != "admin" and datos.permiso != "cajero":
+            raise HTTPException(403, "Solo puedes crear usuarios de caja; los administradores los crea ActitUd.")
+        alias = datos.usuario.strip().lower()
+        if sesion.scalar(select(Usuario).where(Usuario.usuario == alias)):
+            raise HTTPException(409, "Ese nombre de usuario ya existe.")
+        nuevo = Usuario(usuario=alias, nombre=" ".join(datos.nombre.split()), rol="comercio", permiso=datos.permiso,
+                        comercio_id=comercio.id, contrasena=cifrar_contrasena(datos.contrasena))
+        sesion.add(nuevo)
+        sesion.flush()
+        log.info("«%s» creó el usuario %s (%s) en la tienda %s.", actor.usuario, nuevo.id, datos.permiso, comercio.id)
+        return nuevo
+
+    def cambiar(sesion: Session, objetivo: Usuario, cambio: CambioUsuario, actor: Usuario) -> None:
+        puede_gestionar(actor, objetivo)
+        if cambio.permiso is not None and cambio.permiso != objetivo.permiso and actor.rol != "admin":
+            raise HTTPException(403, "Solo la administración de ActitUd puede cambiar el permiso.")
+        if cambio.activo is not None:
+            objetivo.activo = cambio.activo
+        if cambio.contrasena:
+            objetivo.contrasena = cifrar_contrasena(cambio.contrasena)
+        if cambio.nombre:
+            objetivo.nombre = " ".join(cambio.nombre.split())
+        if cambio.permiso is not None:
+            objetivo.permiso = cambio.permiso
+        log.info("«%s» modificó el usuario %s.", actor.usuario, objetivo.id)
+
+    def usuarios_de(sesion: Session, comercio_id: int | None = None) -> list[dict]:
+        consulta = (select(Usuario, Comercio.nombre).outerjoin(Comercio, Usuario.comercio_id == Comercio.id)
+                    .order_by(Usuario.rol, Comercio.nombre, Usuario.permiso, Usuario.usuario))
+        if comercio_id is not None:
+            consulta = consulta.where(Usuario.comercio_id == comercio_id)
+        return [usuario_json(u, nombre) for u, nombre in sesion.execute(consulta)]
+
+    @app.get("/api/admin/usuarios", tags=["administración"], responses=errores_panel,
+             summary="Todos los usuarios: administración de ActitUd y personal de cada tienda (sin contraseñas)")
+    def listar_usuarios(_admin: Usuario = Depends(solo_admin)):
+        with app.state.sesiones() as sesion:
+            return usuarios_de(sesion)
+
     @app.post("/api/admin/comercios/{comercio_id}/usuarios", status_code=201, tags=["administración"],
-              responses={**errores_panel, 409: {"model": Error}}, summary="Crea el usuario con el que la tienda entra a su panel")
+              responses={**errores_panel, 409: {"model": Error}},
+              summary="Crea un usuario de la tienda: cajero (solo valida) o administrador (gestiona la tienda)")
     def crear_usuario_comercio(comercio_id: int, datos: DatosUsuarioComercio, admin: Usuario = Depends(solo_admin)):
         with app.state.sesiones.begin() as sesion:
             comercio = comercio_o_404(sesion, comercio_id)
-            usuario = datos.usuario.strip().lower()
-            if sesion.scalar(select(Usuario).where(Usuario.usuario == usuario)):
-                raise HTTPException(409, "Ese nombre de usuario ya existe.")
-            sesion.add(Usuario(usuario=usuario, nombre=" ".join(datos.nombre.split()), rol="comercio",
-                               comercio_id=comercio.id, contrasena=cifrar_contrasena(datos.contrasena)))
-            sesion.flush()
-            log.info("«%s» creó un usuario para la tienda %s.", admin.usuario, comercio.id)
+            crear_usuario(sesion, comercio, datos, admin)
             return detalle_comercio(sesion, comercio)
 
     @app.patch("/api/admin/usuarios/{usuario_id}", tags=["administración"], responses=errores_panel,
-               summary="Activa, desactiva o cambia la contraseña de un usuario de comercio")
-    def cambiar_usuario(usuario_id: int, cambio: CambioUsuario, _admin: Usuario = Depends(solo_admin)):
+               summary="Cambia nombre, permiso, contraseña o estado de un usuario de tienda")
+    def cambiar_usuario(usuario_id: int, cambio: CambioUsuario, admin: Usuario = Depends(solo_admin)):
         with app.state.sesiones.begin() as sesion:
             usuario = sesion.get(Usuario, usuario_id)
-            if not usuario or usuario.rol != "comercio":
+            if not usuario:
                 raise HTTPException(404, "El usuario de comercio no existe.")
-            if cambio.activo is not None:
-                usuario.activo = cambio.activo
-            if cambio.contrasena:
-                usuario.contrasena = cifrar_contrasena(cambio.contrasena)
+            cambiar(sesion, usuario, cambio, admin)
             sesion.flush()
             return detalle_comercio(sesion, comercio_o_404(sesion, usuario.comercio_id))
+
+    @app.delete("/api/admin/usuarios/{usuario_id}", status_code=204, tags=["administración"], responses=errores_panel,
+                summary="Elimina un usuario de tienda (los canjes no dependen del usuario)")
+    def eliminar_usuario(usuario_id: int, admin: Usuario = Depends(solo_admin)):
+        with app.state.sesiones.begin() as sesion:
+            usuario = sesion.get(Usuario, usuario_id)
+            if not usuario:
+                raise HTTPException(404, "El usuario de comercio no existe.")
+            puede_gestionar(admin, usuario)
+            sesion.delete(usuario)
+            log.info("«%s» eliminó el usuario %s.", admin.usuario, usuario_id)
+        return Response(status_code=204)
+
+    # Equipo de la tienda: el administrador de la tienda gestiona a sus cajeros.
+
+    @app.get("/api/panel/comercios/{comercio_id}/usuarios", tags=["panel del comercio"], responses=errores_panel,
+             summary="Usuarios de la tienda (cajeros y administradores)")
+    def equipo(comercio_id: int, usuario: Usuario = Depends(usuario_actual)):
+        autorizar_comercio(comercio_id, usuario)
+        with app.state.sesiones() as sesion:
+            comercio_o_404(sesion, comercio_id)
+            return usuarios_de(sesion, comercio_id)
+
+    @app.post("/api/panel/comercios/{comercio_id}/usuarios", status_code=201, tags=["panel del comercio"],
+              responses={**errores_panel, 409: {"model": Error}}, summary="Crea un cajero de la tienda")
+    def crear_cajero(comercio_id: int, datos: DatosUsuarioComercio, usuario: Usuario = Depends(usuario_actual)):
+        autorizar_comercio(comercio_id, usuario)
+        with app.state.sesiones.begin() as sesion:
+            crear_usuario(sesion, comercio_o_404(sesion, comercio_id), datos, usuario)
+            return usuarios_de(sesion, comercio_id)
+
+    @app.patch("/api/panel/comercios/{comercio_id}/usuarios/{usuario_id}", tags=["panel del comercio"],
+               responses=errores_panel, summary="Cambia nombre, contraseña o estado de un cajero de la tienda")
+    def cambiar_cajero(comercio_id: int, usuario_id: int, cambio: CambioUsuario,
+                       usuario: Usuario = Depends(usuario_actual)):
+        autorizar_comercio(comercio_id, usuario)
+        with app.state.sesiones.begin() as sesion:
+            objetivo = sesion.get(Usuario, usuario_id)
+            if not objetivo or objetivo.comercio_id != comercio_id:
+                raise HTTPException(404, "El usuario de comercio no existe.")
+            cambiar(sesion, objetivo, cambio, usuario)
+            sesion.flush()
+            return usuarios_de(sesion, comercio_id)
+
+    @app.delete("/api/panel/comercios/{comercio_id}/usuarios/{usuario_id}", status_code=204,
+                tags=["panel del comercio"], responses=errores_panel, summary="Elimina un cajero de la tienda")
+    def eliminar_cajero(comercio_id: int, usuario_id: int, usuario: Usuario = Depends(usuario_actual)):
+        autorizar_comercio(comercio_id, usuario)
+        with app.state.sesiones.begin() as sesion:
+            objetivo = sesion.get(Usuario, usuario_id)
+            if not objetivo or objetivo.comercio_id != comercio_id:
+                raise HTTPException(404, "El usuario de comercio no existe.")
+            puede_gestionar(usuario, objetivo)
+            sesion.delete(objetivo)
+        return Response(status_code=204)
 
     return app
 

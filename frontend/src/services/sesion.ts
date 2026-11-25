@@ -8,10 +8,24 @@ export interface UsuarioSesion {
   usuario: string;
   nombre: string;
   rol: 'admin' | 'comercio';
-  /** Solo rol comercio: la tienda que administra. */
+  /** Solo rol comercio: su tienda. */
   comercioId?: number | null;
   comercio?: string | null;
+  /** Solo rol comercio: cajero = solo valida carnets; administrador = gestiona ofertas, métricas y cajeros. */
+  permiso?: Permiso | null;
 }
+
+export type Permiso = 'cajero' | 'administrador';
+
+export const TEXTO_PERMISO: Record<Permiso, string> = { cajero: 'Cajero', administrador: 'Administrador de tienda' };
+
+/** "Administración ActitUd", "Administrador de tienda" o "Cajero". */
+export function textoRol(usuario: Pick<UsuarioSesion, 'rol' | 'permiso'>): string {
+  return usuario.rol === 'admin' ? 'Administración ActitUd' : TEXTO_PERMISO[usuario.permiso ?? 'cajero'];
+}
+
+/** El usuario es de caja: solo valida carnets, no entra al panel. */
+export const esCajero = (sesion: Sesion | null) => sesion?.usuario.rol === 'comercio' && sesion.usuario.permiso !== 'administrador';
 
 export interface Sesion {
   token: string;

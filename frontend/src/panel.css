@@ -582,3 +582,554 @@
   color: var(--texto);
   font-size: 0.92rem;
 }
+
+/* ---------------------------------------------------------------- sesión en la cabecera */
+
+.sesion-cabecera {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 280px;
+  padding: 3px 3px 3px 3px;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 12%);
+  color: #fff;
+}
+
+.sesion-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--lima);
+  color: #1b1b1b;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.sesion-datos {
+  display: grid;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+.sesion-quien,
+.sesion-que {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.sesion-quien {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.sesion-que {
+  font-size: 0.7rem;
+  color: rgb(255 255 255 / 72%);
+}
+
+.sesion-salir {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: #fff;
+  cursor: pointer;
+}
+
+.sesion-salir:hover {
+  background: rgb(255 255 255 / 16%);
+}
+
+.sesion-salir:focus-visible {
+  outline: 3px solid var(--foco);
+  outline-offset: 2px;
+}
+
+/* En el celular solo el avatar y el botón de salir: el nombre completo queda en el title. */
+@media (max-width: 700px) {
+  .sesion-datos {
+    display: none;
+  }
+
+  .sesion-cabecera {
+    gap: 2px;
+  }
+}
+
+/* ---------------------------------------------------------------- aviso de sesión iniciada */
+
+.bienvenida-sesion {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--activo-suave);
+  color: var(--activo-2);
+  box-shadow: var(--sombra-s);
+  font-size: 0.92rem;
+  animation: aparecer-sesion 0.25s ease-out;
+}
+
+.bienvenida-sesion > svg {
+  flex: none;
+}
+
+.bienvenida-sesion > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.bienvenida-sesion .boton-texto {
+  flex: none;
+  color: inherit;
+  font-weight: 700;
+}
+
+@media (prefers-color-scheme: dark) {
+  .bienvenida-sesion {
+    color: #9bd96b;
+  }
+}
+
+@keyframes aparecer-sesion {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bienvenida-sesion {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------- sesión de caja */
+
+.sesion-caja {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 28px 24px;
+  text-align: center;
+}
+
+.sesion-caja h1 {
+  margin: 10px 0 8px;
+  font-family: var(--fuente-titulo);
+  font-size: 1.6rem;
+  text-transform: uppercase;
+}
+
+.sesion-caja p {
+  color: var(--texto-suave);
+}
+
+.sesion-caja .login-icono {
+  margin: 0 auto;
+}
+
+.sesion-caja-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.sesion-caja-acciones a {
+  text-decoration: none;
+}
+
+/* ---------------------------------------------------------------- gestión de usuarios */
+
+.filtros-usuarios {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.filtros-usuarios .login-campo {
+  flex: 1 1 180px;
+  width: auto;
+  min-width: 0;
+  min-height: 44px;
+  font-size: 0.92rem;
+}
+
+.filtros-usuarios .campo-buscar {
+  flex-grow: 2;
+}
+
+.celda-usuario b,
+.celda-usuario > span {
+  display: block;
+  white-space: nowrap;
+}
+
+.celda-usuario > span {
+  font-size: 0.8rem;
+}
+
+.acciones-fila {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 2px;
+}
+
+.tabla-usuarios .celda-fecha {
+  white-space: nowrap;
+  color: var(--texto-suave);
+  font-size: 0.85rem;
+}
+
+.tabla-usuarios .celda-acciones {
+  text-align: right;
+}
+
+.tabla-usuarios tr.usuario-inactivo td:not(.celda-acciones) {
+  opacity: 0.6;
+}
+
+.fila-edicion td {
+  background: var(--superficie-2);
+}
+
+.editar-usuario {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  padding: 6px 0;
+}
+
+.editar-usuario .aviso-linea,
+.editar-usuario .formulario-acciones {
+  grid-column: 1 / -1;
+}
+
+.campo-con-boton {
+  display: flex;
+  gap: 6px;
+}
+
+.campo-con-boton .login-campo {
+  flex: 1;
+  min-width: 0;
+}
+
+.campo-con-boton .boton {
+  flex: none;
+}
+
+.chip-cajero {
+  background: var(--superficie-2);
+  color: var(--texto);
+  border: 1px solid var(--borde);
+}
+
+.chip-admin {
+  background: var(--negro);
+  color: #fff;
+}
+
+.opciones-permiso {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+
+.opciones-permiso legend {
+  margin-bottom: 6px;
+}
+
+.opcion-permiso {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  background: var(--superficie);
+  cursor: pointer;
+}
+
+.opcion-permiso.elegida {
+  border-color: var(--primario);
+  box-shadow: 0 0 0 1px var(--primario);
+}
+
+.opcion-permiso input {
+  margin-top: 3px;
+  accent-color: var(--primario);
+}
+
+.opcion-permiso span {
+  display: grid;
+  gap: 2px;
+}
+
+.opcion-permiso small {
+  color: var(--texto-suave);
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.leyenda-permisos {
+  padding: 16px 18px;
+}
+
+.leyenda-permisos h3 {
+  margin-bottom: 8px;
+  font-size: 0.95rem;
+}
+
+.leyenda-permisos dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 14px;
+  font-size: 0.88rem;
+}
+
+.leyenda-permisos dt {
+  font-weight: 700;
+}
+
+.leyenda-permisos dd {
+  margin: 0;
+  color: var(--texto-suave);
+}
+
+@media (max-width: 560px) {
+  .leyenda-permisos dl {
+    grid-template-columns: 1fr;
+  }
+
+  .leyenda-permisos dd {
+    margin-bottom: 6px;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .chip-admin {
+    background: var(--rosa);
+  }
+}
+
+/* Usuarios en el celular: una tarjeta por usuario, con las acciones a la vista. */
+@media (max-width: 700px) {
+  .tabla-usuarios thead {
+    display: none;
+  }
+
+  .tabla-usuarios,
+  .tabla-usuarios tbody {
+    display: block;
+  }
+
+  .tabla-usuarios tbody tr:not(.fila-edicion) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 8px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--borde);
+  }
+
+  .tabla-usuarios tbody tr:not(.fila-edicion) td {
+    padding: 0;
+    border: 0;
+  }
+
+  .tabla-usuarios .celda-usuario {
+    flex: 1 0 100%;
+  }
+
+  .tabla-usuarios .celda-fecha::before {
+    content: 'Último acceso: ';
+  }
+
+  .tabla-usuarios .celda-acciones {
+    flex: 1 0 100%;
+    text-align: left;
+  }
+
+  .tabla-usuarios .celda-acciones .texto-tenue {
+    display: none;
+  }
+
+  .acciones-fila {
+    justify-content: flex-start;
+    margin-left: -10px;
+  }
+
+  .fila-edicion,
+  .fila-edicion td {
+    display: block;
+  }
+}
+
+/* ---------------------------------------------------------------- validador: ofertas de hoy de la tienda */
+
+.columna-login {
+  grid-column: 1 / -1;
+}
+
+.ofertas-hoy {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--primario-suave);
+}
+
+.ofertas-hoy.sin-oferta {
+  background: var(--aviso-suave);
+}
+
+.ofertas-hoy-cargando,
+.ofertas-hoy-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--texto-suave);
+  font-size: 0.9rem;
+}
+
+.ofertas-hoy-error {
+  background: var(--inactivo-suave);
+  color: var(--inactivo);
+}
+
+.ofertas-hoy-error .boton-texto {
+  margin-left: auto;
+}
+
+.ofertas-hoy-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.ofertas-hoy-cabecera > div {
+  min-width: 0;
+}
+
+.ofertas-hoy-cabecera h2 {
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.ofertas-hoy-cabecera p {
+  color: var(--texto-suave);
+  font-size: 0.8rem;
+}
+
+.oferta-aplicada {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--superficie);
+  box-shadow: var(--sombra-s);
+}
+
+.oferta-aplicada-valor {
+  flex: none;
+  min-width: 64px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--primario);
+  color: #fff;
+  font-family: var(--fuente-titulo);
+  font-size: 1.35rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.oferta-aplicada-texto {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.oferta-aplicada-etiqueta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--activo-2);
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+@media (prefers-color-scheme: dark) {
+  .oferta-aplicada-etiqueta {
+    color: #9bd96b;
+  }
+}
+
+.oferta-aplicada-texto small {
+  color: var(--texto-suave);
+  font-size: 0.8rem;
+}
+
+.oferta-condiciones {
+  color: var(--texto-suave);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.otras-ofertas {
+  font-size: 0.85rem;
+}
+
+.otras-ofertas summary {
+  color: var(--primario);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.otras-ofertas ul {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+
+.otras-ofertas p {
+  color: var(--texto-suave);
+  font-size: 0.78rem;
+}
+
+.oferta-ninguna {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--texto);
+  font-size: 0.9rem;
+}
+
+.oferta-ninguna svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--aviso);
+}

@@ -2,10 +2,14 @@ import type { Criterio, ResultadoValidacion, Titular } from '../types';
 import { normalizarCedula } from '../utils/cedula';
 import { cedulaDeTokenQr } from '../utils/qr';
 import datosDemo from './datos-demo.json';
+import { ErrorSesion, sesionGuardada } from './sesion';
 
 export interface ServicioValidacion {
   readonly modo: 'demo' | 'api';
-  /** comercioId: tienda que valida; si el estudiante está activo, el servidor registra su descuento. */
+  /**
+   * Con servidor, validar exige la sesión de la tienda: el servidor toma la tienda de la sesión y registra el
+   * descuento vigente hoy. comercioId solo lo usa el admin, que no tiene tienda propia.
+   */
   validar(criterio: Criterio, comercioId?: number): Promise<ResultadoValidacion>;
   /** true si el servidor responde. Se usa en la pantalla de bienvenida. */
   comprobarConexion(): Promise<boolean>;
@@ -32,9 +36,9 @@ const TIMEOUT_MS = 12_000;
 
 /**
  * Contrato de la API (ver README de la raíz):
- *   GET {VITE_API_URL}/carnets/validar?cedula=8-123-456
+ *   GET {VITE_API_URL}/carnets/validar?cedula=8-123-456          Authorization: Bearer <token de la sesión>
  *   GET {VITE_API_URL}/carnets/validar?qr=<contenido del QR del carné UTP>
- *   200 → Titular   404 → no existe   400/429/503 → { error }
+ *   200 → Titular (+ descuento aplicado)   404 → no existe   401 → sin sesión   400/403/429/503 → { error }
  */
 function crearServicioApi(baseUrl: string): ServicioValidacion {
   return {
@@ -51,15 +55,21 @@ function crearServicioApi(baseUrl: string): ServicioValidacion {
       const parametros = new URLSearchParams({ [criterio.tipo]: criterio.valor });
       if (comercioId) parametros.set('comercio_id', String(comercioId));
       const url = `${baseUrl}/carnets/validar?${parametros}`;
+      const sesion = sesionGuardada();
+      if (!sesion) throw new ErrorSesion('Inicia sesión con el usuario de tu tienda para validar.');
       let respuesta: Response;
       try {
-        respuesta = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+        respuesta = await fetch(url, {
+          headers: { Accept: 'application/json', Authorization: `Bearer ${sesion.token}` },
+          signal: AbortSignal.timeout(TIMEOUT_MS),
+        });
       } catch (error) {
         if (error instanceof DOMException && error.name === 'TimeoutError') {
           throw new ErrorValidacion('El servidor de validación no respondió a tiempo.', 'no-verificado');
         }
         throw new ErrorValidacion('No hay conexión con el servidor de validación. Revisa el internet del equipo.', 'no-verificado');
       }
+      if (respuesta.status === 401) throw new ErrorSesion('Tu sesión venció. Vuelve a iniciar sesión para seguir validando.');
       if (respuesta.status === 404) return { criterio, titular: null, consultadoEn: new Date() };
       if (!respuesta.ok) {
         const cuerpo = (await respuesta.json().catch(() => null)) as { error?: unknown } | null;

@@ -5,7 +5,7 @@
 > - **Cronograma, actividad 8 (semana 5):** "Pruebas de validación con usuarios representativos y medición de indicadores".
 > - **Capítulo V:** "Evaluación de la viabilidad técnica del prototipo mediante pruebas de validación funcional con usuarios representativos" y "Medición de tiempos de respuesta y tasa de validaciones exitosas durante las pruebas".
 >
-> Las pruebas automáticas (93 en `api/tests` y 23 en el frontend) **no las reemplazan**: demuestran que el código hace lo que debe, pero el objetivo 6 pide personas usando el sistema.
+> Las pruebas automáticas (100 en `api/tests` y 23 en el frontend) **no las reemplazan**: demuestran que el código hace lo que debe, pero el objetivo 6 pide personas usando el sistema.
 
 ## 1. Objetivo de las pruebas
 
@@ -39,7 +39,7 @@ Medir, en condiciones representativas, tres indicadores:
 
    Este comando borra los canjes, las validaciones y los usuarios de comercio anteriores; el administrador se conserva. Como las ofertas reales aplican de lunes a viernes, **la prueba debe hacerse un día hábil**.
 2. **Carnets de prueba:** genera QR de estudiantes ficticios **activos e inactivos** con `mock-utp/generar_qr.py` e imprímelos o pásalos a celulares.
-3. **Tiendas y usuarios:** en **Panel → Comercios**, crea un usuario por tienda participante y verifica que cada tienda tenga una oferta vigente ese día.
+3. **Tiendas y usuarios:** en **Panel → Usuarios**, crea por cada tienda participante un usuario **administrador de tienda** (encargado) y uno o más **cajeros**, y verifica que cada tienda tenga una oferta vigente ese día.
 4. **Red real:** levanta el sistema en una laptop o servidor accesible por Wi-Fi o datos desde los celulares. La cámara del celular exige HTTPS o `localhost`.
 5. **Opcional, latencia realista:** levanta el mock con `MOCK_LATENCIA_MS=300` (o un valor similar) para simular la red hasta la UTP.
 
@@ -52,11 +52,14 @@ Medir, en condiciones representativas, tres indicadores:
 | E3 | Escanear un QR que no es de un carnet UTP | Cajero | Mensaje "no es un carnet UTP" |
 | E4 | Escribir la cédula (el QR no se lee) | Cajero | Mismo resultado que el escaneo |
 | E5 | Escanear dos veces seguidas el mismo carnet | Cajero | El segundo escaneo indica "ya registrado"; no se duplica el canje |
-| E6 | Validar en una tienda sin oferta vigente hoy | Cajero | No aparece en el selector o se indica que no tiene descuento vigente |
+| E6 | Validar en una tienda sin oferta vigente hoy | Cajero | El validador avisa que la tienda no tiene ofertas vigentes hoy y no permite escanear |
+| E6b | Intentar validar sin iniciar sesión | Cajero | La app pide iniciar sesión; no se puede escanear |
 | E7 | Publicar una oferta nueva "de lunes a viernes, hasta el 31/12/2026" y marcarla como principal | Comercio (panel) | Aparece "Se aplica hoy" y la siguiente validación usa ese descuento |
 | E8 | Desactivar una oferta y revisar las métricas de la tienda | Comercio (panel) | La oferta deja de aplicarse; las métricas muestran los canjes de la prueba |
 | E9 | Revisar el reporte de validación y exportar el CSV | Admin | Indicadores de la sesión de prueba |
 | E10 | *(Opcional)* Simular la caída de la UTP (detener `mock-utp`) | Cajero | "No se pudo verificar"; nunca "inactivo" |
+| E11 | Iniciar sesión con un usuario de caja | Cajero | Confirma la sesión, va directo al validador con su tienda fijada y no puede abrir ofertas ni métricas |
+| E12 | Crear un cajero nuevo, cambiarle la contraseña y desactivarlo | Comercio (panel) | El cajero entra con su contraseña; desactivado, ya no puede entrar |
 
 En cada escenario, el observador registra: éxito sin ayuda, éxito con ayuda o fallo; el tiempo total en el mostrador (cronómetro: desde que el estudiante muestra el QR hasta que el cajero sabe qué hacer); y los comentarios del participante.
 

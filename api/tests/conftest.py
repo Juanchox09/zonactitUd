@@ -10,8 +10,9 @@ from sqlalchemy.pool import StaticPool
 
 from app.cliente_utp import ClienteUtp
 from app.config import Configuracion
-from app.db import preparar_base
+from app.db import Comercio, Descuento, Usuario, preparar_base
 from app.main import crear_app
+from app.seguridad import cifrar_contrasena
 from servidor import Estudiante, FuenteMemoria, crear_servidor  # mock-utp/servidor.py
 
 ESTUDIANTES = [
@@ -46,6 +47,33 @@ def crear_cliente_utp(url: str, **opciones) -> ClienteUtp:
     opciones.setdefault("cache_segundos", 0)
     return ClienteUtp(url, opciones.pop("client_id", CLIENT_ID), opciones.pop("client_secret", CLIENT_SECRET),
                       **opciones)
+
+
+def entrar(api, usuario: str = "admin", contrasena: str = "actitud2026") -> dict:
+    r = api.post("/api/auth/login", json={"usuario": usuario, "contrasena": contrasena})
+    assert r.status_code == 200, r.text
+    return {"Authorization": f"Bearer {r.json()['token']}"}
+
+
+def tienda_de_pruebas(api, nombre: str = "Tienda de pruebas", ofertas=(("porcentaje", 15, "15 % en bebidas"),),
+                      activa: bool = True) -> int:
+    """Tienda con sus ofertas (todos los días, sin vencimiento); la primera es la principal."""
+    with api.app.state.sesiones.begin() as sesion:
+        comercio = Comercio(nombre=nombre, categoria="Shopping", activo=activa)
+        comercio.descuentos = [Descuento(tipo=t, porcentaje=p, descripcion=d, principal=(i == 0))
+                               for i, (t, p, d) in enumerate(ofertas)]
+        sesion.add(comercio)
+        sesion.flush()
+        return comercio.id
+
+
+def caja_de(api, comercio_id: int, usuario: str | None = None, permiso: str = "cajero") -> dict:
+    """Crea un usuario de la tienda e inicia sesión con él: sin sesión no se puede validar."""
+    usuario = usuario or f"caja{comercio_id}"
+    with api.app.state.sesiones.begin() as sesion:
+        sesion.add(Usuario(usuario=usuario, nombre="Caja de pruebas", rol="comercio", permiso=permiso,
+                           comercio_id=comercio_id, contrasena=cifrar_contrasena("clave-de-caja")))
+    return entrar(api, usuario, "clave-de-caja")
 
 
 @pytest.fixture

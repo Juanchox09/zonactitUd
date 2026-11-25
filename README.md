@@ -84,23 +84,27 @@ docker compose run --rm -v ./frontend/demo-qr:/salida mock-utp python generar_qr
 
 ## API
 
+> **Validar exige iniciar sesión** (`Authorization: Bearer <token>`): cada validación registra la tienda y el descuento aplicado. El personal de tienda valida siempre en la suya (se toma de la sesión); el admin indica `comercio_id`. Sin sesión: 401.
+
 | Método | Ruta | Uso |
 |--------|------|-----|
-| GET | `/api/carnets/validar?cedula=8-123-456` | por cédula |
+| GET | `/api/carnets/validar?cedula=8-123-456` | por cédula; si el estudiante está activo, **registra automáticamente el descuento vigente hoy de la tienda** y lo devuelve en `descuento` |
 | GET | `/api/carnets/validar?qr=<contenido del QR>` | por QR leído con la cámara del navegador |
 | POST | `/api/carnets/validar-imagen` (campo `imagen`) | por foto del QR; se lee con **OpenCV** en el servidor |
+| GET | `/api/validacion/tienda` | tienda de la sesión, sus ofertas disponibles hoy y la que se aplicará |
 | GET | `/api/salud` | estado de la API y de la base |
-| GET | `/api/carnets/validar?qr=…&comercio_id=3` | desde una tienda: si el estudiante está activo, **registra el descuento vigente hoy de esa tienda** y lo devuelve en `descuento` |
-| GET | `/api/comercios` | tiendas con al menos una oferta vigente hoy (para el selector del validador) |
-| POST | `/api/canjes` | registra un descuento aplicado, solo si el estudiante está activo |
+| GET | `/api/comercios` | tiendas con al menos una oferta vigente hoy (selector del admin) |
+| POST | `/api/canjes` | registra un descuento aplicado, solo si el estudiante está activo (con sesión) |
 | POST | `/api/auth/login` | inicia sesión `{ usuario, contrasena }` (rol `admin` o `comercio`) y devuelve el token |
 | GET | `/api/auth/sesion` | usuario de la sesión actual (y su tienda, si es de comercio) |
 | GET | `/api/panel/comercios/{id}` | tienda, sus ofertas y usuarios. **Comercio: solo la suya; admin: cualquiera** |
 | POST / PUT / DELETE | `/api/panel/comercios/{id}/descuentos[/{d}]` | publicar, editar (valor, días, vigencia, principal, activa) o eliminar ofertas |
 | GET | `/api/panel/comercios/{id}/metricas?dias=30` | métricas básicas de la tienda |
 | GET / POST / PUT | `/api/admin/comercios[/{id}]` | afiliar y editar tiendas. **Solo admin** |
-| POST | `/api/admin/comercios/{id}/usuarios` | crear el usuario de una tienda. **Solo admin** |
-| PATCH | `/api/admin/usuarios/{id}` | activar, desactivar o cambiar la contraseña de un usuario de tienda. **Solo admin** |
+| POST | `/api/admin/comercios/{id}/usuarios` | crear un usuario de la tienda con su permiso: `cajero` (solo valida) o `administrador` (gestiona la tienda). **Solo admin** |
+| GET | `/api/admin/usuarios` | todos los usuarios, con tienda, permiso y último acceso. **Solo admin** |
+| PATCH / DELETE | `/api/admin/usuarios/{id}` | cambiar nombre, permiso (`cajero` / `administrador`), contraseña o estado, o eliminar un usuario de tienda. **Solo admin** |
+| GET / POST / PATCH / DELETE | `/api/panel/comercios/{id}/usuarios[/{u}]` | equipo de la tienda: el administrador de la tienda gestiona a sus **cajeros** |
 | GET | `/api/reportes?dias=30` | uso del programa: horarios, tiendas, facultades, descuentos y alertas. **Solo admin** |
 | GET | `/api/reportes/validacion?dias=30` | reporte de validación: tasa de validaciones exitosas y tiempos de respuesta (OE6). **Solo admin** |
 
@@ -130,7 +134,7 @@ Privacidad:
 ## Pruebas
 
 ```bash
-docker compose run --rm --no-deps api pytest -q    # 93 pruebas: identificadores, cliente UTP, endpoints, OpenCV, reportería, descuento por tienda, sesiones, panel del comercio, reporte de validación
+docker compose run --rm --no-deps api pytest -q    # 100 pruebas: identificadores, cliente UTP, endpoints, OpenCV, reportería, descuento por tienda, sesiones, panel del comercio, permisos de usuario, reporte de validación
 ```
 
 Las pruebas levantan el mismo mock de `mock-utp/servidor.py` con estudiantes en memoria y usan SQLite en memoria, así que no necesitan MySQL.
@@ -141,8 +145,11 @@ Las pruebas levantan el mismo mock de `mock-utp/servidor.py` con estudiantes en 
 
 En la app, pestaña **Panel** (`#/panel`). Según quién inicie sesión:
 
-- **Administración (rol `admin`):** *Uso del programa*, *Validación* (tasa de validaciones exitosas, tiempo mediano, P90 y P95, % dentro de la meta de 2 s, por método y por tienda, exportable a CSV) y *Comercios* (afiliar tiendas, activarlas, crear sus usuarios y gestionar sus ofertas).
-- **Comercio (rol `comercio`):** *Mis ofertas* (publicar, editar, activar, elegir la principal, días y vigencia) y *Métricas* de su tienda. Al validar con esa sesión abierta, el validador usa su tienda automáticamente.
+- **Administración (rol `admin`):** *Uso del programa*, *Validación* (tasa de validaciones exitosas, tiempo mediano, P90 y P95, % dentro de la meta de 2 s, por método y por tienda, exportable a CSV), *Comercios* (afiliar tiendas, activarlas y gestionar sus ofertas y usuarios) y *Usuarios* (todos los usuarios con su tienda, permiso y último acceso; crear, editar, cambiar permiso o contraseña, desactivar y eliminar).
+- **Administrador de tienda (rol `comercio`, permiso `administrador`):** *Mis ofertas* (publicar, editar, activar, elegir la principal, días y vigencia), *Métricas* de su tienda y *Equipo* (crear y gestionar a sus cajeros).
+- **Cajero (rol `comercio`, permiso `cajero`):** solo valida. Al iniciar sesión va directo al validador con su tienda fijada; no entra al panel.
+
+Al iniciar sesión se confirma quién entró y con qué permiso, y la cabecera muestra al usuario con el botón para cerrar sesión.
 
 Reportería del programa: horarios de uso, tiendas con más descuentos, uso por facultad en proporción a la matrícula, tipos de descuento, ahorro entregado y alertas de posible fraude, sin guardar cédulas. Detalle en [`docs/propuesta-reporteria.md`](docs/propuesta-reporteria.md).
 

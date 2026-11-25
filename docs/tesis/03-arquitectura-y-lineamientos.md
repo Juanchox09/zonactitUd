@@ -2,7 +2,7 @@
 
 > **Objetivo específico 3 del anteproyecto:** *Diseñar la arquitectura tecnológica del sistema de validación QR, definiendo los componentes, modelos de datos, flujos de autenticación y lineamientos de seguridad y privacidad que servirían de base para una futura integración con el sistema de información estudiantil de la UTP.*
 >
-> Corresponde al Capítulo III (Diseño del Sistema y Metodología) y a las actividades 3 y 4 del cronograma. Todo lo descrito aquí está implementado en el repositorio y cubierto por pruebas automáticas (`api/tests`, 93 pruebas).
+> Corresponde al Capítulo III (Diseño del Sistema y Metodología) y a las actividades 3 y 4 del cronograma. Todo lo descrito aquí está implementado en el repositorio y cubierto por pruebas automáticas (`api/tests`, 100 pruebas).
 
 ---
 
@@ -10,9 +10,9 @@
 
 ActitUd reemplaza la tarjeta física del programa por el **código QR del carnet digital de la UTP**.
 
-1. El personal del comercio escanea el QR con la aplicación web desde su celular.
+1. El personal del comercio **inicia sesión con el usuario de su tienda** y escanea el QR con la aplicación web desde su celular. Sin sesión no se puede validar: cada validación debe registrar en qué tienda se hizo y qué descuento se aplicó.
 2. La API consulta en tiempo real a la API de Estado de Estudiante de la UTP.
-3. Si el estudiante está **activo** (matriculado en el periodo vigente), la API determina el descuento que corresponde a ese comercio ese día y lo registra.
+3. Si el estudiante está **activo** (matriculado en el periodo vigente), la API determina **automáticamente** el descuento de esa tienda ese día, entre sus ofertas disponibles (la principal vigente hoy o, si no aplica, la primera vigente), y lo registra. El cajero no elige el descuento.
 4. Si está **inactivo** o no existe, se rechaza.
 5. Si la UTP no responde, se informa "no se pudo verificar". Nunca se informa como "inactivo".
 
@@ -112,7 +112,9 @@ erDiagram
     varchar contrasena "scrypt con sal"
     varchar rol "admin | comercio"
     int comercio_id FK
+    varchar permiso "cajero | administrador (rol comercio)"
     bool activo
+    datetime ultimo_acceso
   }
   MATRICULA_FACULTADES {
     varchar facultad PK
@@ -139,15 +141,17 @@ Los "perfiles estudiantiles simulados" que pide el anteproyecto viven en una bas
 
 | Método y ruta | Quién | Propósito |
 |---|---|---|
-| `GET /api/carnets/validar?qr=…&comercio_id=…` (o `cedula=`) | App de validación | Valida y, si el estudiante está activo, registra el descuento |
-| `POST /api/carnets/validar-imagen` | App de validación | Lee el QR de una foto con OpenCV y valida |
+| `GET /api/carnets/validar?qr=…` (o `cedula=`) | App de validación, **con sesión** | Valida en la tienda de la sesión y, si el estudiante está activo, registra el descuento aplicado. El admin, que no tiene tienda, agrega `comercio_id` |
+| `POST /api/carnets/validar-imagen` | App de validación, **con sesión** | Lee el QR de una foto con OpenCV y valida igual que la anterior |
+| `GET /api/validacion/tienda` | App de validación, **con sesión** | Tienda de la sesión, sus ofertas disponibles hoy y la que se aplicará automáticamente |
 | `GET /api/comercios` | App de validación | Tiendas con ofertas vigentes hoy |
-| `POST /api/auth/login` · `GET /api/auth/sesion` | Panel | Inicio de sesión (admin o comercio) y token Bearer |
-| `GET /api/panel/comercios/{id}` | Comercio (su tienda) o admin | Tienda, ofertas y usuarios |
-| `POST`, `PUT` y `DELETE /api/panel/comercios/{id}/descuentos[/{d}]` | Comercio (su tienda) o admin | Gestionar ofertas y configurar descuentos |
-| `GET /api/panel/comercios/{id}/metricas?dias=` | Comercio (su tienda) o admin | Métricas básicas de la tienda |
+| `POST /api/auth/login` · `GET /api/auth/sesion` | Panel | Inicio de sesión y token Bearer; la sesión informa rol, tienda y permiso |
+| `GET /api/panel/comercios/{id}` | Administrador de la tienda o admin | Tienda, ofertas y usuarios |
+| `POST`, `PUT` y `DELETE /api/panel/comercios/{id}/descuentos[/{d}]` | Administrador de la tienda o admin | Gestionar ofertas y configurar descuentos |
+| `GET /api/panel/comercios/{id}/metricas?dias=` | Administrador de la tienda o admin | Métricas básicas de la tienda |
+| `GET`, `POST`, `PATCH` y `DELETE /api/panel/comercios/{id}/usuarios[/{u}]` | Administrador de la tienda o admin | Equipo de la tienda: el administrador de tienda solo crea y gestiona cajeros |
 | `GET`, `POST` y `PUT /api/admin/comercios[/{id}]` | Admin | Afiliar, editar, activar y desactivar tiendas |
-| `POST /api/admin/comercios/{id}/usuarios` · `PATCH /api/admin/usuarios/{id}` | Admin | Usuarios de cada tienda |
+| `GET /api/admin/usuarios` · `POST /api/admin/comercios/{id}/usuarios` · `PATCH` y `DELETE /api/admin/usuarios/{id}` | Admin | Todos los usuarios: crear con permiso, cambiar nombre, permiso o contraseña, activar, eliminar |
 | `GET /api/reportes?dias=` | Admin | Uso del programa |
 | `GET /api/reportes/validacion?dias=` | Admin | Tasa de validaciones exitosas y tiempos de respuesta |
 | `GET /api/salud` | Monitoreo | Estado de la API y de la base de datos |
@@ -185,9 +189,13 @@ sequenceDiagram
   participant API as API ActitUd
   participant UTP as API UTP
   participant DB as MySQL
+  C->>App: Inicia sesión (usuario de la tienda 25)
+  App->>API: GET /api/validacion/tienda · Bearer token
+  API-->>App: ofertas de hoy · se aplicará "30 %"
   C->>App: Escanea el QR del carnet
-  App->>API: GET /api/carnets/validar?qr=…&comercio_id=25
-  API->>DB: descuento vigente hoy de la tienda 25
+  App->>API: GET /api/carnets/validar?qr=… · Bearer token
+  API->>API: sesión válida · tienda = 25 (de la sesión, no del navegador)
+  API->>DB: oferta principal vigente hoy de la tienda 25
   API->>UTP: validar-carne(token QR)
   UTP-->>API: estudiante ACTIVO
   API->>DB: INSERT canje (estudiante = HMAC(cédula), facultad, %)
@@ -195,6 +203,8 @@ sequenceDiagram
   API-->>App: ACTIVO + nombre + descuento "30 %"
   App-->>C: Pantalla verde: aplicar 30 %
 ```
+
+Sin sesión, la API responde 401 y no consulta a la UTP ni registra nada. Un usuario de tienda no puede validar a nombre de otra (403). Si la tienda no tiene ofertas vigentes hoy o no está activa, la API responde 400 con el motivo y la app no permite escanear.
 
 ### 5.3 Panel (personas: administración y comercios)
 
@@ -208,25 +218,31 @@ sequenceDiagram
   API->>API: verifica scrypt (tiempo constante; huella falsa si el usuario no existe)
   API-->>P: token = base64(sub, rol, exp) + firma HMAC-SHA256 · 8 h
   P->>API: GET /api/panel/comercios/7 · Authorization: Bearer token
-  API->>API: firma y vencimiento válidos · usuario activo · rol admin o comercio_id = 7
-  API-->>P: 200 datos · o 401 (sesión vencida) · o 403 (otra tienda)
+  API->>API: firma y vencimiento válidos · usuario activo · rol admin, o comercio_id = 7 con permiso administrador
+  API-->>P: 200 datos · o 401 (sesión vencida) · o 403 (otra tienda o usuario de caja)
 ```
+
+El rol y el permiso se leen de la base en **cada** pedido, no del token: si el admin cambia el permiso de un usuario o lo desactiva, el cambio aplica al instante, sin esperar a que venza la sesión. Al iniciar sesión, la aplicación confirma quién entró y con qué permiso, y lo muestra en la cabecera; un **cajero** va directo al validador con su tienda fijada.
 
 **Roles y permisos**
 
-| Acción | Admin | Comercio |
-|---|---|---|
-| Ver y gestionar las ofertas de su tienda | ✔ (de cualquier tienda) | ✔ (solo la suya) |
-| Ver las métricas de su tienda | ✔ | ✔ (sin alertas por estudiante ni comparación con otras tiendas) |
-| Reportes del programa y reporte de validación | ✔ | ✘ (403) |
-| Afiliar tiendas y crear o desactivar usuarios | ✔ | ✘ (403) |
-| Validar desde el escáner | ✔ | ✔ (la tienda queda fijada por la sesión) |
+El personal de cada tienda tiene uno de dos permisos: **cajero** (solo valida) o **administrador de tienda** (gestiona la tienda).
+
+| Acción | Admin ActitUd | Administrador de tienda | Cajero |
+|---|---|---|---|
+| Validar (exige sesión; registra tienda y descuento) | ✔ (elige la tienda) | ✔ (su tienda, tomada de la sesión) | ✔ (su tienda, tomada de la sesión) |
+| Ver y gestionar las ofertas de la tienda | ✔ (de cualquier tienda) | ✔ (solo la suya) | ✘ (403) |
+| Ver las métricas de la tienda | ✔ | ✔ (sin alertas por estudiante ni comparación con otras tiendas) | ✘ (403) |
+| Crear, renombrar, cambiar la contraseña, desactivar y eliminar cajeros | ✔ | ✔ (solo cajeros de su tienda, nunca a sí mismo) | ✘ (403) |
+| Crear administradores de tienda y cambiar permisos | ✔ | ✘ (403) | ✘ (403) |
+| Reportes del programa y reporte de validación | ✔ | ✘ (403) | ✘ (403) |
+| Afiliar tiendas | ✔ | ✘ (403) | ✘ (403) |
 
 ## 6. Lineamientos de seguridad
 
 | # | Lineamiento | Implementación en el prototipo |
 |---|---|---|
-| S1 | Mínimo privilegio | Roles admin y comercio; un comercio solo accede a su `comercio_id` (403 en otro caso) |
+| S1 | Mínimo privilegio | Rol admin y personal de tienda con permiso cajero (solo valida) o administrador (gestiona su tienda); nadie accede a otro `comercio_id` (403); un administrador de tienda no puede crear administradores ni cambiar su propio usuario |
 | S2 | Contraseñas nunca en claro | scrypt (n = 2¹⁴, r = 8, p = 1) con sal aleatoria por usuario; comparación en tiempo constante |
 | S3 | Sesiones firmadas y con vencimiento | Token HMAC-SHA256 con expiración de 8 h; un usuario desactivado pierde la sesión al instante |
 | S4 | No revelar si un usuario existe | El login responde igual y tarda lo mismo con un usuario inexistente o una contraseña errónea |
@@ -237,7 +253,7 @@ sequenceDiagram
 | S9 | CORS restringido | Solo el origen configurado (`CORS_ORIGIN`) |
 | S10 | Disponibilidad honesta | Si la UTP falla, se responde "no se pudo verificar"; nunca se niega ni se concede un descuento por error |
 | S11 | Transporte cifrado | En producción, solo HTTPS (TLS) entre navegador y API y entre API y UTP |
-| S12 | Pruebas automáticas | 93 pruebas: permisos, sesiones, reglas de descuento, privacidad de la bitácora |
+| S12 | Pruebas automáticas | 100 pruebas: validar exige sesión, permisos por rol y por permiso de tienda, sesiones, reglas de descuento, privacidad de la bitácora |
 
 ## 7. Lineamientos de privacidad y protección de datos
 
@@ -251,7 +267,8 @@ Marco de referencia: **Ley 81 de 26 de marzo de 2019 sobre protección de datos 
 | P4 | Finalidad | Los datos se usan solo para validar el beneficio y medir el programa; no se venden ni se ceden |
 | P5 | Separación de fuentes | Los datos académicos permanecen en la UTP; ActitUd los consulta en el momento y no los replica |
 | P6 | Registros sin datos personales | Los registros del servidor omiten la cadena de consulta (donde van la cédula y el QR); la librería HTTP no registra URLs |
-| P7 | Lo que ve cada rol | El comercio ve métricas agregadas de su tienda, sin alertas por estudiante; el nombre del estudiante solo aparece en la pantalla del cajero durante la validación |
+| P7 | Lo que ve cada rol | El administrador de tienda ve métricas agregadas de su tienda, sin alertas por estudiante; el cajero no ve métricas; el nombre del estudiante solo aparece en la pantalla del cajero durante la validación |
+| P7b | Datos del personal de tienda | De cada usuario se guarda solo usuario, nombre, permiso, contraseña cifrada y fecha del último acceso (para que la tienda y ActitUd detecten cuentas sin uso). La lista de usuarios nunca devuelve la contraseña |
 | P8 | Transparencia | Aviso al estudiante (en la tienda o en el carnet digital) de que la validación consulta a la UTP solo si está activo |
 | P9 | Formalización | Una implementación real requiere un convenio UTP–Altaplaza que defina responsable y encargado del tratamiento, finalidad, plazo de conservación de los canjes y procedimiento ante incidentes |
 

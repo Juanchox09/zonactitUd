@@ -6,9 +6,16 @@ interface Props {
   onIniciar: (sesion: Sesion) => void;
   /** Motivo por el que se volvió a pedir la sesión (p. ej. venció). */
   aviso?: string | null;
+  titulo?: string;
+  texto?: string;
 }
 
-export function LoginAdmin({ onIniciar, aviso }: Props) {
+export function LoginAdmin({
+  onIniciar,
+  aviso,
+  titulo = 'Acceso al panel',
+  texto = 'Para la administración de ActitUd y para el personal de los comercios afiliados.',
+}: Props) {
   const [usuario, setUsuario] = useState('');
   const [contrasena, setContrasena] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -39,8 +46,8 @@ export function LoginAdmin({ onIniciar, aviso }: Props) {
       <div className="login-icono" aria-hidden="true">
         <IconoCandado width={26} height={26} />
       </div>
-      <h1 id="login-titulo">Acceso al panel</h1>
-      <p className="login-texto">Para la administración de ActitUd y para el personal de los comercios afiliados.</p>
+      <h1 id="login-titulo">{titulo}</h1>
+      <p className="login-texto">{texto}</p>
 
       <form className="login-formulario" onSubmit={enviar} noValidate>
         <label className="etiqueta" htmlFor="login-usuario">

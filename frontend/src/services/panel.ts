@@ -3,7 +3,7 @@
  * y reporte de validación. Todas las rutas exigen el token Bearer de la sesión.
  */
 import type { Reporte } from './reportes';
-import { ErrorSesion } from './sesion';
+import { ErrorSesion, type Permiso } from './sesion';
 
 const apiUrl = import.meta.env.VITE_API_URL?.trim().replace(/\/+$/, '');
 
@@ -31,7 +31,28 @@ export interface UsuarioComercio {
   id: number;
   usuario: string;
   nombre: string;
+  rol: 'admin' | 'comercio';
+  permiso: Permiso | null;
   activo: boolean;
+  comercioId: number | null;
+  comercio: string | null;
+  /** ISO local de Panamá, al minuto. */
+  ultimoAcceso: string | null;
+  creadoEn: string | null;
+}
+
+export interface DatosUsuario {
+  usuario: string;
+  nombre: string;
+  contrasena: string;
+  permiso: Permiso;
+}
+
+export interface CambioUsuario {
+  activo?: boolean;
+  contrasena?: string;
+  nombre?: string;
+  permiso?: Permiso;
 }
 
 export interface ComercioPanel {
@@ -130,6 +151,14 @@ export const panel = {
     pedir<void>(`/panel/comercios/${id}/descuentos/${oferta}`, token, { metodo: 'DELETE' }),
   metricas: (id: number, dias: number, token: string, senal?: AbortSignal) =>
     pedir<MetricasComercio>(`/panel/comercios/${id}/metricas?dias=${dias}`, token, { senal }),
+  // Equipo de la tienda (administrador de la tienda o admin)
+  equipo: (id: number, token: string, senal?: AbortSignal) => pedir<UsuarioComercio[]>(`/panel/comercios/${id}/usuarios`, token, { senal }),
+  crearCajero: (id: number, datos: DatosUsuario, token: string) =>
+    pedir<UsuarioComercio[]>(`/panel/comercios/${id}/usuarios`, token, { metodo: 'POST', cuerpo: datos }),
+  cambiarCajero: (id: number, usuario: number, cambio: CambioUsuario, token: string) =>
+    pedir<UsuarioComercio[]>(`/panel/comercios/${id}/usuarios/${usuario}`, token, { metodo: 'PATCH', cuerpo: cambio }),
+  eliminarCajero: (id: number, usuario: number, token: string) =>
+    pedir<void>(`/panel/comercios/${id}/usuarios/${usuario}`, token, { metodo: 'DELETE' }),
 
   // Solo administradores
   comercios: (token: string, senal?: AbortSignal) => pedir<ComercioPanel[]>('/admin/comercios', token, { senal }),
@@ -137,10 +166,12 @@ export const panel = {
     pedir<ComercioPanel>('/admin/comercios', token, { metodo: 'POST', cuerpo: datos }),
   editarComercio: (id: number, datos: { nombre: string; categoria: string; activo: boolean }, token: string) =>
     pedir<ComercioPanel>(`/admin/comercios/${id}`, token, { metodo: 'PUT', cuerpo: datos }),
-  crearUsuario: (id: number, datos: { usuario: string; nombre: string; contrasena: string }, token: string) =>
+  usuarios: (token: string, senal?: AbortSignal) => pedir<UsuarioComercio[]>('/admin/usuarios', token, { senal }),
+  crearUsuario: (id: number, datos: DatosUsuario, token: string) =>
     pedir<ComercioPanel>(`/admin/comercios/${id}/usuarios`, token, { metodo: 'POST', cuerpo: datos }),
-  cambiarUsuario: (usuario: number, cambio: { activo?: boolean; contrasena?: string }, token: string) =>
+  cambiarUsuario: (usuario: number, cambio: CambioUsuario, token: string) =>
     pedir<ComercioPanel>(`/admin/usuarios/${usuario}`, token, { metodo: 'PATCH', cuerpo: cambio }),
+  eliminarUsuario: (usuario: number, token: string) => pedir<void>(`/admin/usuarios/${usuario}`, token, { metodo: 'DELETE' }),
   reporteValidacion: (dias: number, token: string, senal?: AbortSignal) =>
     pedir<ReporteValidacion>(`/reportes/validacion?dias=${dias}`, token, { senal }),
 };

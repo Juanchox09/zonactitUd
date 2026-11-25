@@ -123,8 +123,12 @@ class Canje(Base):
 
 
 class Usuario(Base):
-    """Usuarios del panel. admin = administración de ActitUd (todo); comercio = personal de una tienda
-    afiliada (solo sus ofertas y sus métricas)."""
+    """Usuarios del sistema.
+
+    rol admin = administración de ActitUd (todo). rol comercio = personal de una tienda afiliada, con un permiso:
+      cajero        = solo valida carnets en su tienda;
+      administrador = además gestiona las ofertas, las métricas y los cajeros de su tienda.
+    """
 
     __tablename__ = "usuarios"
     __table_args__ = (CheckConstraint("rol IN ('admin', 'comercio')", name="ck_usuarios_rol_v2"),)
@@ -135,7 +139,9 @@ class Usuario(Base):
     contrasena: Mapped[str] = mapped_column(String(200), comment="scrypt con sal; nunca la contraseña")
     rol: Mapped[str] = mapped_column(String(10), default="admin")
     comercio_id: Mapped[int | None] = mapped_column(ForeignKey("comercios.id"), nullable=True, index=True)
+    permiso: Mapped[str | None] = mapped_column(String(15), nullable=True, comment="cajero | administrador (rol comercio)")
     activo: Mapped[bool] = mapped_column(Boolean, default=True)
+    ultimo_acceso: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     creado_en: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
@@ -159,7 +165,7 @@ COLUMNAS_NUEVAS = {
     "descuentos": {"principal": "BOOLEAN NOT NULL DEFAULT 0", "vigente_desde": "DATE NULL",
                    "vigente_hasta": "DATE NULL", "dias_semana": "VARCHAR(7) NOT NULL DEFAULT '0123456'",
                    "condiciones": "VARCHAR(300) NULL"},
-    "usuarios": {"comercio_id": "INTEGER NULL"},
+    "usuarios": {"comercio_id": "INTEGER NULL", "permiso": "VARCHAR(15) NULL", "ultimo_acceso": "DATETIME NULL"},
 }
 
 
@@ -174,6 +180,9 @@ def migrar(motor: Engine) -> None:
             for nombre, definicion in columnas.items():
                 if nombre not in existentes:
                     conexion.execute(text(f"ALTER TABLE {tabla} ADD COLUMN {nombre} {definicion}"))
+        if inspector.has_table("usuarios"):
+            # Los usuarios de tienda anteriores al permiso gestionaban su tienda: quedan como administradores.
+            conexion.execute(text("UPDATE usuarios SET permiso = 'administrador' WHERE rol = 'comercio' AND permiso IS NULL"))
         if motor.dialect.name == "mysql" and inspector.has_table("usuarios"):
             # La primera versión solo admitía el rol admin.
             if "ck_usuarios_rol" in {c["name"] for c in inspector.get_check_constraints("usuarios")}:
