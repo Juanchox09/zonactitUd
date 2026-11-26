@@ -215,7 +215,7 @@ sequenceDiagram
   participant API as API ActitUd
   U->>P: usuario + contraseña
   P->>API: POST /api/auth/login
-  API->>API: verifica scrypt (tiempo constante; huella falsa si el usuario no existe)
+  API->>API: verifica scrypt (tiempo constante, huella falsa si el usuario no existe)
   API-->>P: token = base64(sub, rol, exp) + firma HMAC-SHA256 · 8 h
   P->>API: GET /api/panel/comercios/7 · Authorization: Bearer token
   API->>API: firma y vencimiento válidos · usuario activo · rol admin, o comercio_id = 7 con permiso administrador
